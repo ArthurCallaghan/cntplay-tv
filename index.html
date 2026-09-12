@@ -9,13 +9,8 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>CNT</title>
-    <link id="favicon" rel="icon" type="image/svg+xml" />
-    <link id="site-styles" rel="stylesheet" />
-    <script>
-      window.CNT_FRESH_LOAD = Date.now().toString();
-      document.getElementById("favicon").href = `assets/favicon.svg?v=${window.CNT_FRESH_LOAD}`;
-      document.getElementById("site-styles").href = `styles.css?v=${window.CNT_FRESH_LOAD}`;
-    </script>
+    <link rel="icon" href="assets/favicon.svg?v=20260912-4" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css?v=20260912-4" />
   </head>
   <body>
     <header class="topbar">
@@ -102,31 +97,18 @@
     </footer>
 
     <noscript>Esta emisión necesita JavaScript para sincronizarse con la hora actual.</noscript>
+    <script src="data/catalog.js?v=20260912-4"></script>
+    <script src="data/schedules/cnt.js?v=20260912-4"></script>
+    <script src="data/schedules/weazel.js?v=20260912-4"></script>
+    <script src="data/schedules/comedy-tv.js?v=20260912-4"></script>
+    <script src="data/schedules/metv.js?v=20260912-4"></script>
+    <script src="data/schedules/the-canyon-channel.js?v=20260912-4"></script>
+    <script src="data/schedules/emotion.js?v=20260912-4"></script>
+    <script src="app.js?v=20260912-4"></script>
     <script>
-      (() => {
-        const files = [
-          "data/catalog.js",
-          "data/schedules/cnt.js",
-          "data/schedules/weazel.js",
-          "data/schedules/comedy-tv.js",
-          "data/schedules/metv.js",
-          "data/schedules/the-canyon-channel.js",
-          "data/schedules/emotion.js",
-          "app.js"
-        ];
-        const load = (src) => new Promise((resolve, reject) => {
-          const script = document.createElement("script");
-          script.src = `${src}?v=${window.CNT_FRESH_LOAD}`;
-          script.onload = resolve;
-          script.onerror = reject;
-          document.body.append(script);
-        });
-        files.reduce((chain, file) => chain.then(() => load(file)), Promise.resolve())
-          .catch(() => document.body.classList.add("load-error"));
-        if ("serviceWorker" in navigator) {
-          navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(registration => registration.update()).catch(() => {});
-        }
-      })();
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("sw.js?v=20260912-4", { updateViaCache: "none" }).catch(() => {});
+      }
     </script>
   </body>
 </html>
