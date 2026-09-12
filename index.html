@@ -9,8 +9,12 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>CNT</title>
-    <link rel="icon" href="assets/favicon.svg?v=20260912-5" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=20260912-5" />
+    <link rel="icon" href="assets/favicon.svg?v=20260912-6" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css?v=20260912-6" />
+    <script>
+      if ("serviceWorker" in navigator) navigator.serviceWorker.getRegistrations().then(registrations => registrations.forEach(registration => registration.unregister()));
+      if ("caches" in window) caches.keys().then(names => names.forEach(name => caches.delete(name)));
+    </script>
   </head>
   <body>
     <header class="topbar">
@@ -97,18 +101,13 @@
     </footer>
 
     <noscript>Esta emisión necesita JavaScript para sincronizarse con la hora actual.</noscript>
-    <script src="data/catalog.js?v=20260912-5"></script>
-    <script src="data/schedules/cnt.js?v=20260912-5"></script>
-    <script src="data/schedules/weazel.js?v=20260912-5"></script>
-    <script src="data/schedules/comedy-tv.js?v=20260912-5"></script>
-    <script src="data/schedules/metv.js?v=20260912-5"></script>
-    <script src="data/schedules/the-canyon-channel.js?v=20260912-5"></script>
-    <script src="data/schedules/emotion.js?v=20260912-5"></script>
-    <script src="app.js?v=20260912-5"></script>
-    <script>
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("sw.js?v=20260912-5", { updateViaCache: "none" }).catch(() => {});
-      }
-    </script>
+    <script src="data/catalog.js?v=20260912-6"></script>
+    <script src="data/schedules/cnt.js?v=20260912-6"></script>
+    <script src="data/schedules/weazel.js?v=20260912-6"></script>
+    <script src="data/schedules/comedy-tv.js?v=20260912-6"></script>
+    <script src="data/schedules/metv.js?v=20260912-6"></script>
+    <script src="data/schedules/the-canyon-channel.js?v=20260912-6"></script>
+    <script src="data/schedules/emotion.js?v=20260912-6"></script>
+    <script src="app.js?v=20260912-6"></script>
   </body>
 </html>

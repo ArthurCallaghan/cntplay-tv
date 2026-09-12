@@ -32,6 +32,7 @@ let guideKey = "";
 let guideWindowStart = 0;
 let controlsTimer;
 let activeChannel = "cnt";
+let suppressChannelBug = false;
 const logoVersion = Date.now();
 
 function madridParts(date = new Date()) {
@@ -138,9 +139,18 @@ function renderAgeRating(rating) {
   badge.hidden = false;
 }
 
+function renderAdvertisingBadge() {
+  const badge = $("age-badge");
+  badge.className = "age-badge advertising-badge";
+  badge.textContent = "PUBLICIDAD";
+  badge.setAttribute("aria-label", "Publicidad");
+  badge.hidden = false;
+}
+
 function renderPlayer(item, offset, key) {
   if (loadedKey === key) return;
   loadedKey = key;
+  suppressChannelBug = item.type === "extra";
   const stage = $("player-stage");
   stage.replaceChildren();
   $("channel-bug").hidden = true;
@@ -157,7 +167,7 @@ function renderPlayer(item, offset, key) {
     video.controls = false;
     video.setAttribute("controlsList", "nodownload noplaybackrate");
     video.addEventListener("loadedmetadata", () => { video.currentTime = offset; video.play().catch(() => $("sound-help").hidden = false); }, { once: true });
-    video.addEventListener("playing", () => { $("channel-bug").hidden = false; });
+    video.addEventListener("playing", () => { $("channel-bug").hidden = suppressChannelBug; });
     stage.append(video);
     $("drive-note").hidden = true;
   } else {
@@ -286,7 +296,8 @@ function renderIntermission(state, key) {
     ? `Volvemos a las 06:00 · faltan ${formatDuration(remaining)}`
     : `Volvemos en ${formatDuration(remaining)}`;
   $("channel-bug").hidden = true;
-  $("age-badge").hidden = true;
+  if (state.event.type === "pause") renderAdvertisingBadge();
+  else $("age-badge").hidden = true;
   $("sound-help").hidden = true;
   document.querySelector(".player-lock").classList.remove("is-open");
 }
@@ -318,7 +329,8 @@ function render() {
     const itemElapsed = state.position - state.event.start;
     $("status-kicker").textContent = "AHORA EN CNT";
     $("current-title").textContent = state.event.item.title;
-    renderAgeRating(state.event.item.rating);
+    if (state.event.type === "filler") renderAdvertisingBadge();
+    else renderAgeRating(state.event.item.rating);
     $("elapsed").textContent = formatDuration(itemElapsed);
     $("remaining").textContent = `−${formatDuration(state.event.end - state.position)}`;
     $("progress-bar").style.width = `${Math.min(100, (itemElapsed / state.event.item.duration) * 100)}%`;
@@ -355,7 +367,7 @@ function watchDriveActivation() {
     iframe.tabIndex = -1;
     document.querySelector(".player-lock").classList.remove("is-open");
     $("sound-help").hidden = true;
-    $("channel-bug").hidden = false;
+    $("channel-bug").hidden = suppressChannelBug;
     $("drive-note").textContent = "El reproductor está bloqueado para mantener la emisión lineal.";
   }
 }
