@@ -174,11 +174,13 @@ function renderPlayer(item, offset, key) {
     const iframe = document.createElement("iframe");
     const start = Math.max(0, Math.floor(offset));
     // Drive deja el visor negro en dominios publicados cuando recibe autoplay=1.
-    // Con start conservamos la referencia temporal y el usuario inicia el vídeo con el clic central.
-    iframe.src = `https://drive.google.com/file/d/${item.driveId}/preview?start=${start}`;
+    // Drive usa `t` en sus enlaces temporales; `start` hacía que algunos visores
+    // aceptasen la URL pero comenzasen igualmente desde el principio.
+    iframe.src = `https://drive.google.com/file/d/${item.driveId}/preview?t=${start}`;
     iframe.title = `En directo: ${item.title}`;
-    iframe.allow = "autoplay; fullscreen";
+    iframe.allow = "autoplay; fullscreen; encrypted-media; picture-in-picture";
     iframe.allowFullscreen = true;
+    iframe.loading = "eager";
     iframe.tabIndex = 0;
     stage.append(iframe);
     $("drive-note").hidden = false;
@@ -455,6 +457,7 @@ document.querySelectorAll(".channel-tab").forEach((tab) => {
 window.addEventListener("hashchange", () => setActiveChannel(location.hash.slice(1), false));
 
 setActiveChannel(location.hash.slice(1) || "cnt", false);
+window.CNT_APP_READY = true;
 showPlayerControls();
 setInterval(render, 1000);
 setInterval(watchDriveActivation, 50);

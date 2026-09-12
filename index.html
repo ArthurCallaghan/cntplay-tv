@@ -9,11 +9,33 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>CNT</title>
-    <link rel="icon" href="assets/favicon.svg?v=20260912-6" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=20260912-6" />
+    <link rel="icon" href="assets/favicon.svg?v=20260912-7" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css?v=20260912-7" />
     <script>
+      window.CNT_APP_READY = false;
+      window.CNT_LOAD_ERRORS = [];
+      window.addEventListener("error", event => {
+        const source = event.target && (event.target.src || event.target.href);
+        if (source) window.CNT_LOAD_ERRORS.push(source);
+      }, true);
       if ("serviceWorker" in navigator) navigator.serviceWorker.getRegistrations().then(registrations => registrations.forEach(registration => registration.unregister()));
       if ("caches" in window) caches.keys().then(names => names.forEach(name => caches.delete(name)));
+      window.addEventListener("load", () => setTimeout(() => {
+        if (window.CNT_APP_READY) {
+          sessionStorage.removeItem("cnt-recovery-attempted");
+          return;
+        }
+        if (!sessionStorage.getItem("cnt-recovery-attempted")) {
+          sessionStorage.setItem("cnt-recovery-attempted", "1");
+          const url = new URL(location.href);
+          url.searchParams.set("recuperar", Date.now());
+          location.replace(url);
+          return;
+        }
+        document.body.innerHTML = '<main class="boot-error"><h1>CNT no ha podido cargar</h1><p>Chrome ha bloqueado uno o más archivos de la emisión.</p><p class="boot-error-detail"></p><button onclick="sessionStorage.clear();location.reload()">Reintentar</button></main>';
+        const detail = document.querySelector(".boot-error-detail");
+        detail.textContent = window.CNT_LOAD_ERRORS.length ? `Archivo bloqueado: ${window.CNT_LOAD_ERRORS.at(-1).split("/").at(-1)}` : "Prueba a desactivar el bloqueador de contenido para tv.cntplay.es.";
+      }, 2500));
     </script>
   </head>
   <body>
@@ -101,13 +123,13 @@
     </footer>
 
     <noscript>Esta emisión necesita JavaScript para sincronizarse con la hora actual.</noscript>
-    <script src="data/catalog.js?v=20260912-6"></script>
-    <script src="data/schedules/cnt.js?v=20260912-6"></script>
-    <script src="data/schedules/weazel.js?v=20260912-6"></script>
-    <script src="data/schedules/comedy-tv.js?v=20260912-6"></script>
-    <script src="data/schedules/metv.js?v=20260912-6"></script>
-    <script src="data/schedules/the-canyon-channel.js?v=20260912-6"></script>
-    <script src="data/schedules/emotion.js?v=20260912-6"></script>
-    <script src="app.js?v=20260912-6"></script>
+    <script src="data/catalog.js?v=20260912-7"></script>
+    <script src="data/schedules/cnt.js?v=20260912-7"></script>
+    <script src="data/schedules/weazel.js?v=20260912-7"></script>
+    <script src="data/schedules/comedy-tv.js?v=20260912-7"></script>
+    <script src="data/schedules/metv.js?v=20260912-7"></script>
+    <script src="data/schedules/the-canyon-channel.js?v=20260912-7"></script>
+    <script src="data/schedules/emotion.js?v=20260912-7"></script>
+    <script src="app.js?v=20260912-7"></script>
   </body>
 </html>
