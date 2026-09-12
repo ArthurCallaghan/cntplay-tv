@@ -163,7 +163,9 @@ function renderPlayer(item, offset, key) {
   } else {
     const iframe = document.createElement("iframe");
     const start = Math.max(0, Math.floor(offset));
-    iframe.src = `https://drive.google.com/file/d/${item.driveId}/preview?autoplay=1&start=${start}#t=${start}s`;
+    // Drive deja el visor negro en dominios publicados cuando recibe autoplay=1.
+    // Con start conservamos la referencia temporal y el usuario inicia el vídeo con el clic central.
+    iframe.src = `https://drive.google.com/file/d/${item.driveId}/preview?start=${start}`;
     iframe.title = `En directo: ${item.title}`;
     iframe.allow = "autoplay; fullscreen";
     iframe.allowFullscreen = true;
