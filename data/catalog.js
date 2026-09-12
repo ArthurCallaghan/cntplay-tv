@@ -34,6 +34,9 @@
   const addSpecial = (id, title, duration, driveId) => {
     catalog[id] = { title, duration: seconds(duration), rating: ratingFor(id), driveId, type: "special" };
   };
+  const addExtra = (id, title, duration, driveId, category) => {
+    catalog[id] = { title, duration: seconds(duration), rating: null, driveId, type: "extra", category };
+  };
 
   addEpisodes("caos-strawberry-s01e", "Caos en Strawberry", "Temporada 1", [
     [1,"7:42","1ZKNUNAaGGd7Lph7UeC7R9cetrmOr81ks"],[2,"8:37","1Eqfvtu0YXx3V4tSFXljFOb-0NDrOxvtN"],
@@ -112,6 +115,31 @@
   addSpecial("special-summer-sound-3", "Summer Sound 3", "38:28", "1Xig8MU8-2OQT0v35E-xsNIt2MAX_RLzQ");
   addSpecial("special-summer-sound-4", "Summer Sound 4", "1:34:26", "1CARFuyomJDTmbdpbPDCWYBggvPbQWj05");
   addSpecial("special-nuestro-primer-ano", "Nuestro Primer Año", "28:46", "1GDKIVi35bkTt51fGQy0JXo14mb_GjBd9");
+
+  // Avances autorizados para rellenar pausas (no aparecen como programas en la guía).
+  addExtra("trailer-caos-s01", "Tráiler · Caos en Strawberry T1", "1:50", "16I56QiStywz4QRjO0j_-iIkf3FEzHHDg", "trailer");
+  addExtra("teaser-paranormal-prologo", "Teaser · Paranormal: Prólogo", "0:32", "1hfa9DihkM3-VE6g_KITMxyS-J0_oC-LC", "trailer");
+  addExtra("trailer-paranormal-v01", "Tráiler · Paranormal: Volumen 1", "2:13", "1nHYGPjwemmQyR0DlUSd1m2XGDnl2j8_I", "trailer");
+  addExtra("trailer-three-kind-s01", "Tráiler · Three of a Kind T1", "1:28", "1stdCPMzsqnSlfQdRA6URWR8rYQwPbP5e", "trailer");
+  addExtra("trailer-three-kind-s02", "Tráiler · Three of a Kind T2", "1:13", "1LoHbg3wrwg62AEjGwXzhRVUedRZifklM", "trailer");
+  addExtra("adelanto-mis-amigos-s01", "Adelanto · Mis Amigos T1", "2:48", "1Dg1SlDhbNO5wB36WqlF2DEI0UdqJ1Blh", "promo");
+
+  // Contenido musical de Three of a Kind.
+  addExtra("music-devuelveme-a-mi-chica", "Devuélveme a mi chica", "0:56", "1LVxbSSmm8IKt-KKGvLpZzxVQHoaaeg0C", "music");
+  addExtra("music-dont-stop-believin", "Don't Stop Believin'", "3:03", "1D2cb0JLSJc51decC87PRKU6G9S9Tmghu", "music");
+  addExtra("music-havana", "Havana", "3:54", "104vDwdeWeuSe1vze8m51JM0s31MS3J_f", "music");
+  addExtra("music-have-you-ever-seen-the-rain", "Have You Ever Seen the Rain?", "2:32", "1-QfxDjLCwyIMBxo8Si8_k1gU3nK3uyeE", "music");
+  addExtra("music-im-outta-love", "I'm Outta Love", "3:37", "13dmZZtIycwkPOtwYftKkS9xBjaES68v8", "music");
+  addExtra("music-livin-on-a-prayer", "Livin' on a Prayer", "4:38", "1O-VD5ek0MnY4fueDyWYbn0Nzi1E7hf7m", "music");
+  addExtra("music-livin-on-a-prayer-2", "Livin' on a Prayer 2", "4:19", "1IML3nPF6K1cBrmNHKALqjrLBpr7xw30G", "music");
+  addExtra("music-manchild", "Manchild", "2:09", "1RXK8jqOjI1XbBP_6aX44Xa6KMOjz08wQ", "music");
+  addExtra("music-manchild-espresso", "Manchild / Espresso", "2:59", "1_QjAMcCeUPaNbw5ORJYg-MKg5PfOKIAk", "music");
+  addExtra("music-mystical-magical", "Mystical Magical", "3:02", "11JdU7dHIjAyxgLltfc6ja4pTEl9kvBBD", "music");
+  addExtra("music-somethings-got-a-hold-on-me", "Something's Got a Hold on Me", "3:30", "1DuZXEv3gDTssinRI-noKTw3D4b5ZrbDm", "music");
+  addExtra("music-the-boys-are-back-in-town", "The Boys Are Back in Town", "0:20", "1UuMhDb4sswQc-kgTNEt2IM-kSbPBD8j1", "music");
+  addExtra("music-training-season", "Training Season", "3:40", "1egd2t2Cvt8HAnvrQ6JjD_1bkfHyapdWR", "music");
+  addExtra("music-waka-waka", "Waka Waka", "2:14", "1eS9hIdGOe2JtropTvCcTVCSx-Dq8SLN-", "music");
+  addExtra("music-you-belong-with-me", "You Belong With Me (Póker's Version)", "2:13", "1FJy9ZmKhkUi-lW3ifTVXM0P_3-V55wmJ", "music");
 
   window.CONTENT_CATALOG = catalog;
 })();

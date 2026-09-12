@@ -57,8 +57,8 @@ main { padding: 42px 0 52px; }
 }
 .screen::after { content: ""; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 80px rgba(0,0,0,.25); }
 .player-stage, .player-stage iframe, .player-stage video { width: 100%; height: 100%; border: 0; object-fit: contain; background: #000; }
-.player-stage iframe { display: block; height: calc(100% + 240px); transform: translateY(-110px); }
-.screen:fullscreen .player-stage iframe, .screen:-webkit-full-screen .player-stage iframe { height: calc(100% + 340px); transform: translateY(-155px); }
+.player-stage iframe { display: block; height: calc(100% + 240px); transform: translateY(-120px); }
+.screen:fullscreen .player-stage iframe, .screen:-webkit-full-screen .player-stage iframe { height: calc(100% + 340px); transform: translateY(-170px); }
 .player-lock { position: absolute; z-index: 4; inset: 0; cursor: default; }
 .player-lock.is-open { pointer-events: none; }
 .control-guard { position: absolute; z-index: 5; inset: auto 0 0; height: 82px; background: transparent; }
@@ -68,12 +68,17 @@ main { padding: 42px 0 52px; }
 .channel-bug { filter: drop-shadow(0 2px 5px rgba(0,0,0,.48)); }
 .screen:fullscreen .video-safe-area, .screen:-webkit-full-screen .video-safe-area { inset: 50% auto auto 50%; width: min(100vw, 177.7778vh); height: min(100vh, 56.25vw); transform: translate(-50%, -50%); }
 .screen:fullscreen .channel-bug, .screen:-webkit-full-screen .channel-bug { right: 3%; bottom: 3%; width: clamp(88px, 8%, 150px); max-height: 18%; }
-.age-badge { position: absolute; right: 28px; top: 26px; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: #fff; background: #169447; font-size: .72rem; font-weight: 900; box-shadow: 0 2px 6px rgba(0,0,0,.42); }
+.age-badge { position: absolute; right: 28px; top: 26px; display: grid; place-items: center; width: 27px; height: 27px; border-radius: 50%; color: #fff; background: #169447; font-size: .64rem; font-weight: 900; box-shadow: 0 2px 6px rgba(0,0,0,.42); }
 .age-badge.rating-7 { background: #2475ba; }
 .age-badge.rating-12 { color: #080b12; background: #fec601; }
 .age-badge.rating-16 { background: #e86e13; }
 .age-badge.rating-18 { background: #cf0000; }
 .screen:fullscreen .age-badge, .screen:-webkit-full-screen .age-badge { right: 3%; top: 3%; width: clamp(34px, 2.4vw, 48px); height: clamp(34px, 2.4vw, 48px); font-size: clamp(.72rem, 1vw, .9rem); }
+.coming-up { position: absolute; left: 4%; bottom: 8%; width: min(62%, 520px); padding: 14px 18px 15px; color: #fff; background: linear-gradient(90deg, rgba(5,7,11,.94), rgba(5,7,11,.7)); border-left: 5px solid var(--yellow); box-shadow: 0 8px 28px rgba(0,0,0,.36); opacity: 0; visibility: hidden; transform: translateY(7px); transition: opacity .45s ease, transform .45s ease, visibility 0s linear .45s; }
+.coming-up.is-visible { opacity: 1; visibility: visible; transform: translateY(0); transition-delay: 0s; }
+.coming-up span { display: block; margin-bottom: 5px; color: var(--yellow); font-size: .66rem; font-weight: 900; letter-spacing: .16em; }
+.coming-up strong { display: block; overflow: hidden; font-size: clamp(.9rem, 1.7vw, 1.25rem); line-height: 1.18; text-overflow: ellipsis; white-space: nowrap; }
+.screen:fullscreen .coming-up, .screen:-webkit-full-screen .coming-up { left: 3%; bottom: 7%; width: min(48%, 720px); padding: clamp(16px, 1.4vw, 25px); }
 .fullscreen-button { position: absolute; z-index: 7; left: 18px; bottom: 18px; width: 40px; height: 36px; border: 1px solid rgba(255,255,255,.24); color: #fff; background: rgba(6,8,12,.9); font: 700 1.25rem/1 system-ui; cursor: pointer; }
 .fullscreen-button:hover, .fullscreen-button:focus-visible { color: var(--yellow); border-color: var(--yellow); }
 
@@ -145,7 +150,7 @@ noscript { display: block; padding: 18px; text-align: center; background: #5b171
   .brand-logo { width: auto; height: 46px; max-width: 90px; }
   main { padding-top: 24px; }
   .channel-bug { right: 20px; bottom: 20px; width: 54px; }
-  .age-badge { right: 20px; top: 20px; width: 28px; height: 28px; font-size: .66rem; }
+  .age-badge { right: 20px; top: 20px; width: 24px; height: 24px; font-size: .58rem; }
   .off-air h1 { font-size: 2.15rem; }
   .now-panel { padding: 23px; }
 }

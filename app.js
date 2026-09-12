@@ -62,12 +62,38 @@ function buildDayEvents(day) {
   });
 
   const events = [];
+  const usedFillers = new Set();
+  let fillerCursor = ((day % CNT_SCHEDULE.fillers.length) + CNT_SCHEDULE.fillers.length) % CNT_SCHEDULE.fillers.length;
+
+  const fillGap = (start, end) => {
+    let cursor = start;
+    while (cursor < end) {
+      const remaining = end - cursor;
+      let selectedIndex = -1;
+      for (let step = 0; step < CNT_SCHEDULE.fillers.length; step++) {
+        const index = (fillerCursor + step) % CNT_SCHEDULE.fillers.length;
+        const id = CNT_SCHEDULE.fillers[index];
+        const item = CATALOG[id];
+        if (!usedFillers.has(id) && item && item.duration <= remaining) {
+          selectedIndex = index;
+          break;
+        }
+      }
+      if (selectedIndex < 0) break;
+      const id = CNT_SCHEDULE.fillers[selectedIndex];
+      const item = CATALOG[id];
+      events.push({ type: "filler", item: { id, ...item }, start: cursor, end: cursor + item.duration, guideStart: start, guideEnd: end });
+      usedFillers.add(id);
+      fillerCursor = (selectedIndex + 1) % CNT_SCHEDULE.fillers.length;
+      cursor += item.duration;
+    }
+    if (cursor < end) events.push({ type: "pause", start: cursor, end, guideStart: start, guideEnd: end });
+  };
+
   programs.forEach((program, index) => {
     events.push(program);
     const next = programs[index + 1];
-    if (next && next.start > program.end) {
-      events.push({ type: "pause", start: program.end, end: next.start });
-    }
+    if (next && next.start > program.end) fillGap(program.end, next.start);
   });
   const last = programs.at(-1);
   const nextDayStart = 86400 + BROADCAST_DAY_START;
@@ -83,7 +109,7 @@ function broadcastState(now = new Date()) {
   const index = events.findIndex((event) => position >= event.start && position < event.end);
   const event = events[Math.max(0, index)];
   const nextProgram = events.slice(Math.max(0, index) + 1).find(candidate => candidate.type === "program") || buildDayEvents(day + 1).find(candidate => candidate.type === "program");
-  return { onAir: event?.type === "program", event, index, events, day, position, nextProgram };
+  return { onAir: event?.type === "program" || event?.type === "filler", event, index, events, day, position, nextProgram };
 }
 
 function formatDuration(seconds) {
@@ -156,18 +182,29 @@ function renderProgramGuide(state) {
   const hourWidth = Math.max(160, viewport.clientWidth / 1.5);
   const nowSeconds = state.day * 86400 + state.position;
   const current = state.event;
-  const key = `${state.day}-${current.start}-${current.type}`;
+  const currentGuideStart = current.guideStart ?? current.start;
+  const key = `${state.day}-${currentGuideStart}-${current.type === "filler" ? "pause" : current.type}`;
   if (guideKey === key) {
     $("guide-now-line").style.left = `${((nowSeconds - guideWindowStart) / 3600) * hourWidth}px`;
     return;
   }
   guideKey = key;
-  guideWindowStart = state.day * 86400 + current.start;
+  guideWindowStart = state.day * 86400 + currentGuideStart;
   const nominalEnd = guideWindowStart + 86400;
   const allEvents = [state.day, state.day + 1, state.day + 2].flatMap((day) =>
     buildDayEvents(day).map((event) => ({ ...event, absoluteStart: day * 86400 + event.start, absoluteEnd: day * 86400 + event.end }))
   );
-  const instances = allEvents.filter(event => event.absoluteEnd > guideWindowStart && event.absoluteStart < nominalEnd);
+  const guideEvents = allEvents.reduce((result, event) => {
+    const normalized = event.type === "filler" ? { ...event, type: "pause" } : event;
+    const previous = result.at(-1);
+    if (previous && previous.type === "pause" && normalized.type === "pause" && previous.absoluteEnd === normalized.absoluteStart) {
+      previous.absoluteEnd = normalized.absoluteEnd;
+    } else {
+      result.push({ ...normalized });
+    }
+    return result;
+  }, []);
+  const instances = guideEvents.filter(event => event.absoluteEnd > guideWindowStart && event.absoluteStart < nominalEnd);
   const lastVisible = instances.at(-1);
   const extendedEnd = Math.max(nominalEnd, lastVisible?.absoluteEnd || nominalEnd);
 
@@ -206,13 +243,17 @@ function renderProgramGuide(state) {
       const isCurrent = nowSeconds >= programStart && nowSeconds < programEnd;
       row.className = `guide-item${isCurrent ? " is-current" : ""}${event.type !== "program" ? " is-pause" : ""}`;
       row.setAttribute("role", "listitem");
-      const itemTitle = event.type === "program" ? event.item.title : event.type === "offair" ? "Fin de emisión" : "Pausa de emisión";
-      row.title = `${clockFromSeconds(programStart)} · ${itemTitle}`;
+      const isEmptyPause = event.type === "pause";
+      const itemTitle = event.type === "program" ? event.item.title : event.type === "offair" ? "Fin de emisión" : "";
+      row.title = isEmptyPause ? "Pausa de emisión" : `${clockFromSeconds(programStart)} · ${itemTitle}`;
+      if (isEmptyPause) row.setAttribute("aria-label", "Pausa de emisión");
       row.style.left = `${((programStart - guideWindowStart) / 3600) * hourWidth}px`;
       row.style.width = `${Math.max(2, (visibleDuration / 3600) * hourWidth - 2)}px`;
-      time.textContent = clockFromSeconds(programStart);
-      title.textContent = itemTitle;
-      row.append(time, title);
+      if (!isEmptyPause) {
+        time.textContent = clockFromSeconds(programStart);
+        title.textContent = itemTitle;
+        row.append(time, title);
+      }
       fragment.append(row);
   });
   scale.replaceChildren(hourFragment);
@@ -231,7 +272,10 @@ function renderIntermission(state, key) {
     stage.replaceChildren();
     const card = document.createElement("div");
     card.className = "off-air";
-    card.innerHTML = `<div class="signal-rings" aria-hidden="true"><i></i><i></i><i></i></div><p class="eyebrow">${isOffAir ? "CNT" : "PAUSA DE EMISIÓN"}</p><h1>${isOffAir ? "Fin de emisión" : "Volvemos enseguida"}</h1><p id="break-countdown" class="countdown"></p>`;
+    card.setAttribute("aria-label", isOffAir ? "Fin de emisión" : "Pausa de emisión");
+    card.innerHTML = isOffAir
+      ? `<div class="signal-rings" aria-hidden="true"><i></i><i></i><i></i></div><p class="eyebrow">CNT</p><h1>Fin de emisión</h1><p id="break-countdown" class="countdown"></p>`
+      : "";
     stage.append(card);
   }
   const remaining = state.event.end - state.position;
@@ -243,6 +287,16 @@ function renderIntermission(state, key) {
   $("age-badge").hidden = true;
   $("sound-help").hidden = true;
   document.querySelector(".player-lock").classList.remove("is-open");
+}
+
+function renderComingUp(state) {
+  const overlay = $("coming-up");
+  const remaining = state.event.end - state.position;
+  const visible = state.event.type === "program" && remaining <= 20 && remaining > 12;
+  overlay.classList.toggle("is-visible", visible);
+  overlay.setAttribute("aria-hidden", String(!visible));
+  if (!visible) return;
+  $("coming-up-title").textContent = state.nextProgram?.item.title || "Nueva jornada de CNT";
 }
 
 function render() {
@@ -267,6 +321,7 @@ function render() {
     $("remaining").textContent = `−${formatDuration(state.event.end - state.position)}`;
     $("progress-bar").style.width = `${Math.min(100, (itemElapsed / state.event.item.duration) * 100)}%`;
     renderPlayer(state.event.item, itemElapsed, stateKey);
+    renderComingUp(state);
   } else {
     const elapsed = state.position - state.event.start;
     const duration = state.event.end - state.event.start;
@@ -276,6 +331,8 @@ function render() {
     $("remaining").textContent = `−${formatDuration(state.event.end - state.position)}`;
     $("progress-bar").style.width = `${Math.min(100, (elapsed / duration) * 100)}%`;
     renderIntermission(state, stateKey);
+    $("coming-up").classList.remove("is-visible");
+    $("coming-up").setAttribute("aria-hidden", "true");
   }
   renderProgramGuide(state);
 }
@@ -336,6 +393,8 @@ function setActiveChannel(id, updateHash = true) {
   $("channel-bug").src = `${channel.logo}?v=${logoVersion}`;
     $("channel-bug").hidden = true;
     $("age-badge").hidden = true;
+  $("coming-up").classList.remove("is-visible");
+  $("coming-up").setAttribute("aria-hidden", "true");
   $("guide-title").textContent = channel.name;
   document.querySelector("footer span").textContent = channel.name;
   document.querySelectorAll(".channel-tab").forEach((tab) => {

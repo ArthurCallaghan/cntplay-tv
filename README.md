@@ -4,6 +4,8 @@ Web estática multicanal lista para GitHub Pages. CNT utiliza una parrilla diari
 
 La franja Poker Night Live de las 20:30 rota diariamente entre tres opciones. Weazel, Comedy TV, MeTV, The Canyon Channel y Emotion quedan preparados para incorporar sus propias parrillas.
 
+Las pausas pueden incluir tráileres, promociones o piezas musicales cuando caben enteras antes del siguiente bloque. Estos rellenos rotan cada día, nunca retrasan una hora de inicio y continúan apareciendo como “Pausa de emisión” en la guía. Cuando quedan 20 segundos de un programa se muestra durante 8 segundos el aviso del siguiente contenido.
+
 ## Publicar en GitHub Pages
 
 1. Sube `index.html`, `styles.css` y `app.js` a la rama que quieras publicar.

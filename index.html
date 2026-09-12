@@ -5,8 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="CNT: emisión lineal con programación diaria." />
     <meta name="theme-color" content="#080b12" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>CNT</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link id="favicon" rel="icon" type="image/svg+xml" />
+    <link id="site-styles" rel="stylesheet" />
+    <script>
+      window.CNT_FRESH_LOAD = Date.now().toString();
+      document.getElementById("favicon").href = `assets/favicon.svg?v=${window.CNT_FRESH_LOAD}`;
+      document.getElementById("site-styles").href = `styles.css?v=${window.CNT_FRESH_LOAD}`;
+    </script>
   </head>
   <body>
     <header class="topbar">
@@ -39,6 +48,10 @@
             <div class="video-safe-area">
               <img id="channel-bug" class="channel-bug" src="assets/cnt-logo.png" alt="" hidden />
               <div id="age-badge" class="age-badge" role="img" hidden></div>
+              <div id="coming-up" class="coming-up" aria-hidden="true">
+                <span>A CONTINUACIÓN</span>
+                <strong id="coming-up-title"></strong>
+              </div>
             </div>
             <button id="fullscreen-button" class="fullscreen-button" type="button" aria-label="Ver a pantalla completa">⛶</button>
             <button id="sound-help" class="sound-help" type="button" hidden>
@@ -89,13 +102,31 @@
     </footer>
 
     <noscript>Esta emisión necesita JavaScript para sincronizarse con la hora actual.</noscript>
-    <script src="data/catalog.js"></script>
-    <script src="data/schedules/cnt.js"></script>
-    <script src="data/schedules/weazel.js"></script>
-    <script src="data/schedules/comedy-tv.js"></script>
-    <script src="data/schedules/metv.js"></script>
-    <script src="data/schedules/the-canyon-channel.js"></script>
-    <script src="data/schedules/emotion.js"></script>
-    <script src="app.js" defer></script>
+    <script>
+      (() => {
+        const files = [
+          "data/catalog.js",
+          "data/schedules/cnt.js",
+          "data/schedules/weazel.js",
+          "data/schedules/comedy-tv.js",
+          "data/schedules/metv.js",
+          "data/schedules/the-canyon-channel.js",
+          "data/schedules/emotion.js",
+          "app.js"
+        ];
+        const load = (src) => new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = `${src}?v=${window.CNT_FRESH_LOAD}`;
+          script.onload = resolve;
+          script.onerror = reject;
+          document.body.append(script);
+        });
+        files.reduce((chain, file) => chain.then(() => load(file)), Promise.resolve())
+          .catch(() => document.body.classList.add("load-error"));
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(registration => registration.update()).catch(() => {});
+        }
+      })();
+    </script>
   </body>
 </html>

@@ -24,5 +24,12 @@ window.CHANNEL_SCHEDULES.cnt = {
     { start: "20:30:00", label: "Poker Night Live 1 + Air", items: ["three-kind-s02e12", "three-kind-s02e30-1"] },
     { start: "20:30:00", label: "Poker Night Live 2 + 2x33", items: ["three-kind-s02e24", "three-kind-s02e33"] },
     { start: "20:30:00", label: "Poker Night Live 3", items: ["three-kind-s02e30-2"] }
+  ],
+  fillers: [
+    "trailer-caos-s01", "teaser-paranormal-prologo", "trailer-paranormal-v01", "trailer-three-kind-s01", "trailer-three-kind-s02",
+    "adelanto-mis-amigos-s01", "music-devuelveme-a-mi-chica", "music-dont-stop-believin", "music-havana",
+    "music-have-you-ever-seen-the-rain", "music-im-outta-love", "music-livin-on-a-prayer", "music-livin-on-a-prayer-2",
+    "music-manchild", "music-manchild-espresso", "music-mystical-magical", "music-somethings-got-a-hold-on-me",
+    "music-the-boys-are-back-in-town", "music-training-season", "music-waka-waka", "music-you-belong-with-me"
   ]
 };
