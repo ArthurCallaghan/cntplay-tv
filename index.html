@@ -9,8 +9,8 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>CNT</title>
-    <link rel="icon" href="assets/favicon.svg?v=20260912-7" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=20260912-7" />
+    <link rel="icon" href="assets/favicon.svg?v=20260923-20" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css?v=20260923-20" />
     <script>
       window.CNT_APP_READY = false;
       window.CNT_LOAD_ERRORS = [];
@@ -44,9 +44,10 @@
         <img id="brand-logo" class="brand-logo" src="assets/cnt-logo.png" alt="CNT" />
       </a>
       <nav class="channel-tabs" aria-label="Canales">
+        <button id="test-player-trigger" class="channel-tab template-tab" data-channel="test" aria-selected="false" aria-label="Abrir plantilla de prueba">Plantilla</button>
         <button class="channel-tab is-active" style="--tab-color:#fec601" data-channel="cnt" aria-selected="true">CNT</button>
         <button class="channel-tab" style="--tab-color:#cf0000" data-channel="weazel" aria-selected="false">Weazel</button>
-        <button class="channel-tab" style="--tab-color:#2475ba" data-channel="comedy" aria-selected="false">Comedy TV</button>
+        <button class="channel-tab" style="--tab-color:#2475ba" data-channel="comedy" aria-selected="false">CCC</button>
         <button class="channel-tab" style="--tab-color:#44cafe" data-channel="metv" aria-selected="false">MeTV</button>
         <button class="channel-tab" style="--tab-color:#843600" data-channel="canyon" aria-selected="false">The Canyon Channel</button>
         <button class="channel-tab" style="--tab-color:#af087c" data-channel="emotion" aria-selected="false">Emotion</button>
@@ -65,7 +66,7 @@
               <h1 id="coming-soon-title">Nuevas emisiones</h1>
               <p>Las emisiones empezarán próximamente.</p>
             </div>
-            <div id="live-badge" class="live-badge" hidden><span></span> EN DIRECTO</div>
+            <div id="live-badge" class="live-badge" hidden><span></span><b id="live-label">EN DIRECTO</b></div>
             <div class="video-safe-area">
               <img id="channel-bug" class="channel-bug" src="assets/cnt-logo.png" alt="" hidden />
               <div id="age-badge" class="age-badge" role="img" hidden></div>
@@ -76,17 +77,25 @@
             </div>
             <button id="fullscreen-button" class="fullscreen-button" type="button" aria-label="Ver a pantalla completa">⛶</button>
             <button id="sound-help" class="sound-help" type="button" hidden>
-              Iniciar vídeo
+              Ver emisión
             </button>
+            <div id="tune-loader" class="tune-loader" hidden aria-live="polite">
+              <span>Preparando emisión…</span>
+              <i aria-hidden="true"><b id="tune-loader-bar"></b></i>
+            </div>
           </div>
           <p id="drive-note" class="drive-note" hidden>
-            Pulsa “Iniciar vídeo”. El clic llegará directamente al botón central de Drive y el reproductor se bloqueará inmediatamente después.
+            Pulsa “Ver emisión”. El clic llegará directamente al botón central de Drive y el reproductor se bloqueará inmediatamente después.
           </p>
         </div>
 
         <aside class="now-panel" aria-live="polite">
-          <p id="status-kicker" class="eyebrow">AHORA EN CNT</p>
+          <p id="status-kicker" class="eyebrow">EN EMISIÓN</p>
           <h2 id="current-title">CNT</h2>
+          <dl id="program-meta" class="program-meta">
+            <div><dt>CLASIFICACIÓN</dt><dd id="current-rating">—</dd></div>
+            <div><dt>DURACIÓN</dt><dd id="current-duration">—</dd></div>
+          </dl>
           <div id="progress-track" class="progress-track" aria-hidden="true"><span id="progress-bar"></span></div>
           <div id="time-row" class="time-row">
             <span id="elapsed">—</span>
@@ -94,8 +103,8 @@
           </div>
           <div class="next-card">
             <span id="next-label">PRÓXIMA EMISIÓN</span>
-            <strong id="next-title">—</strong>
             <time id="next-time">—</time>
+            <strong id="next-title">—</strong>
           </div>
         </aside>
 
@@ -118,18 +127,19 @@
     </main>
 
     <footer>
-      <span>CNT</span>
-      <span>Programación diaria</span>
+      <span>Emisión en directo</span>
+      <span id="footer-channel">CNT</span>
+      <small>CNT · Weazel · Conglomerated Comedy Channel · Music Entertainment TV · The Canyon Channel · Emotion</small>
     </footer>
 
     <noscript>Esta emisión necesita JavaScript para sincronizarse con la hora actual.</noscript>
-    <script src="data/catalog.js?v=20260912-7"></script>
-    <script src="data/schedules/cnt.js?v=20260912-7"></script>
-    <script src="data/schedules/weazel.js?v=20260912-7"></script>
-    <script src="data/schedules/comedy-tv.js?v=20260912-7"></script>
-    <script src="data/schedules/metv.js?v=20260912-7"></script>
-    <script src="data/schedules/the-canyon-channel.js?v=20260912-7"></script>
-    <script src="data/schedules/emotion.js?v=20260912-7"></script>
-    <script src="app.js?v=20260912-7"></script>
+    <script src="data/catalog.js?v=20260923-20"></script>
+    <script src="programacion-general.js?v=20260923-20"></script>
+    <script src="data/schedules/weazel.js?v=20260923-20"></script>
+    <script src="data/schedules/comedy-tv.js?v=20260923-20"></script>
+    <script src="data/schedules/metv.js?v=20260923-20"></script>
+    <script src="data/schedules/the-canyon-channel.js?v=20260923-20"></script>
+    <script src="data/schedules/emotion.js?v=20260923-20"></script>
+    <script src="app.js?v=20260923-20"></script>
   </body>
 </html>

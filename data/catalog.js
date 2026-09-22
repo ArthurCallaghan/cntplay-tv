@@ -35,7 +35,8 @@
     catalog[id] = { title, duration: seconds(duration), rating: ratingFor(id), driveId, type: "special" };
   };
   const addExtra = (id, title, duration, driveId, category) => {
-    catalog[id] = { title, duration: seconds(duration), rating: null, driveId, type: "extra", category };
+    const rating = category === "music" ? "16" : category === "promo" ? "7" : null;
+    catalog[id] = { title, duration: seconds(duration), rating, driveId, type: "extra", category };
   };
 
   addEpisodes("caos-strawberry-s01e", "Caos en Strawberry", "Temporada 1", [
@@ -99,16 +100,16 @@
 
   addMovie("movie-amatista", "Amatista", "9:00", "1CndllrV-VgjButXBsuIUCKM78d43p5bk", "Amatista");
   addMovie("movie-amatista-2", "Amatista 2", "12:13", "1pPMejQpIJZW3wJCYo07v6S8ZFiWjvjSn", "Amatista");
-  addMovie("movie-problemas-en-casa", "Problemas en casa", "5:28", "1d1_G88DAhqnPbUlH9GGdcJJ90xxbsrau", "Navidad");
-  addMovie("movie-origen-fort-brimstone", "El origen de Fort Brimstone", "10:11", "1VpdGaZaBol_K1wryUDU83SVRlwHIdxkX", "Fort Brimstone");
+  addMovie("movie-problemas-en-casa", "Problemas en Casa", "5:28", "1d1_G88DAhqnPbUlH9GGdcJJ90xxbsrau", "Navidad");
+  addMovie("movie-origen-fort-brimstone", "El Origen de Fort Brimstone", "10:11", "1VpdGaZaBol_K1wryUDU83SVRlwHIdxkX", "Fort Brimstone");
   addMovie("movie-fort-brimstone", "Fort Brimstone", "11:00", "13ZJ24tzrdUEhzLPfqf2p_eZwVvtHaAE7", "Fort Brimstone");
-  addMovie("movie-caida-fort-brimstone", "La caída de Fort Brimstone", "12:28", "1AK5vDcAJQNA-EW7AE1-3CFHLMLqZuAtl", "Fort Brimstone");
-  addMovie("movie-el-hotel", "El hotel", "12:09", "1W21hdio4_EQZP20TWAHed_4XL_r03R8X", "Halloween");
-  addMovie("movie-poker-de-ases", "Póker de ases", "9:05", "1Mhsdr32xwpujbppa0OvMrshFTZwH7qQb", "Halloween");
-  addMovie("movie-tumba-faraon-1", "La tumba del faraón", "6:15", "1-d4Ai_peND-rO8Rrpvg9WjCgHUmR_OlO", "La tumba del faraón");
-  addMovie("movie-tumba-faraon-2", "La tumba del faraón II", "13:10", "1aIqdEkvPLGTAZ0f5JdHN60BLqHKEyaFR", "La tumba del faraón");
-  addMovie("movie-tumba-faraon-3", "La tumba del faraón III", "7:40", "1mYaj_Z2Pyj1iqhRwJ53JcSlW-u4h5vto", "La tumba del faraón");
-  addMovie("movie-tumba-faraon-4", "La tumba del faraón IV", "8:30", "1pB49lT21WQ6hdfzS49W58oaBNAZP5EJ_", "La tumba del faraón");
+  addMovie("movie-caida-fort-brimstone", "La Caída de Fort Brimstone", "12:28", "1AK5vDcAJQNA-EW7AE1-3CFHLMLqZuAtl", "Fort Brimstone");
+  addMovie("movie-el-hotel", "El Hotel", "12:09", "1W21hdio4_EQZP20TWAHed_4XL_r03R8X", "Halloween");
+  addMovie("movie-poker-de-ases", "Póker de Ases", "9:05", "1Mhsdr32xwpujbppa0OvMrshFTZwH7qQb", "Halloween");
+  addMovie("movie-tumba-faraon-1", "La Tumba del Faraón", "6:15", "1-d4Ai_peND-rO8Rrpvg9WjCgHUmR_OlO", "La Tumba del Faraón");
+  addMovie("movie-tumba-faraon-2", "La Tumba del Faraón II", "13:10", "1aIqdEkvPLGTAZ0f5JdHN60BLqHKEyaFR", "La Tumba del Faraón");
+  addMovie("movie-tumba-faraon-3", "La Tumba del Faraón III", "7:40", "1mYaj_Z2Pyj1iqhRwJ53JcSlW-u4h5vto", "La Tumba del Faraón");
+  addMovie("movie-tumba-faraon-4", "La Tumba del Faraón IV", "8:30", "1pB49lT21WQ6hdfzS49W58oaBNAZP5EJ_", "La Tumba del Faraón");
 
   addSpecial("special-summer-sound-1", "Summer Sound 1", "25:08", "1u7E0A9WyU6BANmtHIzP9BzdYD64Xdfsx");
   addSpecial("special-summer-sound-2", "Summer Sound 2", "22:43", "1OAQfj1AhcgVE7Wc6E2f3rgv7WZ425qV5");

@@ -1,14 +1,18 @@
 # Canales CNT
 
-Web estática multicanal lista para GitHub Pages. CNT utiliza una parrilla diaria completa desde las 06:00 hasta las 03:00:50 del día siguiente. Los huecos entre bloques se convierten automáticamente en pausas de emisión con cuenta atrás; después del último programa aparece el fin de emisión hasta las 06:00.
+Web estática multicanal lista para GitHub Pages. Weazel, CCC (Conglomerated Comedy Channel), MeTV y The Canyon Channel funcionan como canales lineales continuos en bucle. CNT y Emotion quedan preparados para recibir sus nuevas parrillas.
 
-La franja Poker Night Live de las 20:30 rota diariamente entre tres opciones. Weazel, Comedy TV, MeTV, The Canyon Channel y Emotion quedan preparados para incorporar sus propias parrillas.
+Cada vídeo incorpora cinco segundos de negro antes del siguiente. Weazel emite las dos temporadas completas de *Three of a Kind*; CCC reúne *Mis Amigos*, *Paranormal: Prólogo*, *Caos en Strawberry* y *Paranormal: Volumen 1*; The Canyon Channel emite las películas, siempre separadas por una pausa; y MeTV alterna los cuatro *Summer Sound* con bloques de dos o tres piezas titulados *Contenido Musical de Three of a Kind*. Las pausas y los tráileres insertados dentro de ellas aparecen como un único espacio publicitario, no como programas independientes.
 
-Las pausas solo pueden incluir los cinco tráileres o teasers autorizados cuando caben enteros antes del siguiente bloque. Estos rellenos rotan cada día, nunca retrasan una hora de inicio y continúan apareciendo como un espacio de pausa vacío en la guía. Durante ellos se oculta la mosca del canal y aparece el distintivo “PUBLICIDAD”. Cuando quedan 20 segundos de un programa se muestra durante 8 segundos el aviso del siguiente contenido.
+Los cuatro canales activos incluyen pausas publicitarias regulares de dos a cinco minutos, con un máximo de dos tráileres o teasers autorizados por tanda. Las pausas vacías muestran únicamente «Volvemos en» y un contador. Las piezas musicales de *Three of a Kind* solo forman parte de la programación de MeTV, conservan su clasificación y nunca se usan como relleno publicitario; cada bloque musical queda separado de *Summer Sound* por una pausa anterior y otra posterior.
+
+Antes de habilitar el reproductor, la web muestra una espera de cinco segundos. El primer acceso utiliza «Ver emisión» y los cambios de contenido posteriores «Seguir con la emisión».
+
+La pestaña visible **Plantilla** abre el reproductor de diagnóstico con el tráiler de *Paranormal: Volumen 1*. Conserva la estructura completa de un canal —panel lateral, parrilla vacía y pie—, pero deja el reproductor de Drive sin bloqueos ni recortes para facilitar las pruebas.
 
 ## Publicar en GitHub Pages
 
-1. Sube `index.html`, `styles.css` y `app.js` a la rama que quieras publicar.
+1. Sube todo el contenido de esta carpeta, conservando `assets/`, `data/` y sus subcarpetas, a la rama que quieras publicar.
 2. En el repositorio, abre **Settings → Pages**.
 3. En **Build and deployment**, elige **Deploy from a branch**, selecciona la rama y la carpeta raíz (`/`).
 

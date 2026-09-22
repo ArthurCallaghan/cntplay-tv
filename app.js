@@ -3,17 +3,15 @@
 // La parrilla y el proveedor de vídeo están aislados aquí para facilitar el cambio a MP4 o HLS.
 const TIME_ZONE = "Europe/Madrid";
 const CHANNELS = {
-  cnt: { name: "CNT", color: "#fec601", logo: "assets/cnt-logo.png", type: "Generalista", programmed: true },
-  weazel: { name: "Weazel", color: "#cf0000", logo: "assets/weazel-logo.png", type: "Segundo generalista" },
-  comedy: { name: "Comedy TV", color: "#2475ba", logo: "assets/comedy-tv-logo.png", type: "Comedia" },
-  metv: { name: "MeTV", color: "#44cafe", logo: "assets/metv-logo.png", type: "Música" },
-  canyon: { name: "The Canyon Channel", color: "#843600", logo: "assets/canyon-logo.png", type: "Cine y películas" },
-  emotion: { name: "Emotion", color: "#af087c", logo: "assets/emotion-logo.png", type: "Entretenimiento" }
+  cnt: { name: "CNT", legalName: "CNT", color: "#fec601", logo: "assets/cnt-logo.png", type: "Generalista" },
+  weazel: { name: "Weazel", legalName: "Weazel", color: "#cf0000", logo: "assets/weazel-logo.png", type: "Segundo generalista" },
+  comedy: { name: "CCC", legalName: "Conglomerated Comedy Channel", color: "#2475ba", logo: "assets/comedy-tv-logo.png", type: "Comedia" },
+  metv: { name: "MeTV", legalName: "Music Entertainment TV", color: "#44cafe", logo: "assets/metv-logo.png", type: "Música" },
+  canyon: { name: "The Canyon Channel", legalName: "The Canyon Channel", color: "#843600", logo: "assets/canyon-logo.png", type: "Cine y películas" },
+  emotion: { name: "Emotion", legalName: "Emotion", color: "#af087c", logo: "assets/emotion-logo.png", type: "Entretenimiento" }
 };
 const CATALOG = window.CONTENT_CATALOG;
 const SCHEDULES = window.CHANNEL_SCHEDULES;
-const CNT_SCHEDULE = SCHEDULES.cnt;
-const BROADCAST_DAY_START = 6 * 3600;
 
 // Cambiar a "html5" cuando los archivos estén alojados en un servidor con streaming por rangos.
 const VIDEO_PROVIDER = "drive";
@@ -33,7 +31,32 @@ let guideWindowStart = 0;
 let controlsTimer;
 let activeChannel = "cnt";
 let suppressChannelBug = false;
+let hasStartedBroadcast = false;
+let tuneGateTimer;
+let tuneGateEndsAt = performance.now() + 5000;
+let testMode = false;
 const logoVersion = Date.now();
+
+function isChannelProgrammed(id) {
+  return ["daily", "loop"].includes(SCHEDULES[id]?.mode);
+}
+
+function showActivationControl() {
+  const loader = $("tune-loader");
+  const button = $("sound-help");
+  const remaining = Math.max(0, tuneGateEndsAt - performance.now());
+  clearTimeout(tuneGateTimer);
+  if (remaining > 0) {
+    loader.hidden = false;
+    loader.style.setProperty("--tune-wait", `${remaining}ms`);
+    button.hidden = true;
+    tuneGateTimer = setTimeout(showActivationControl, remaining);
+    return;
+  }
+  loader.hidden = true;
+  button.textContent = hasStartedBroadcast ? "Seguir con la emisión" : "Ver emisión";
+  button.hidden = false;
+}
 
 function madridParts(date = new Date()) {
   const parts = Object.fromEntries(timeFormatter.formatToParts(date).map(p => [p.type, p.value]));
@@ -48,9 +71,112 @@ function parseClock(value) {
   return value.split(":").reduce((total, part) => total * 60 + Number(part), 0);
 }
 
-function buildDayEvents(day) {
-  const rotation = CNT_SCHEDULE.rotations[((day % CNT_SCHEDULE.rotations.length) + CNT_SCHEDULE.rotations.length) % CNT_SCHEDULE.rotations.length];
-  const blocks = [...CNT_SCHEDULE.blocks, rotation].sort((a, b) => parseClock(a.start) - parseClock(b.start));
+const loopCache = new WeakMap();
+
+function expandedLoop(schedule) {
+  if (loopCache.has(schedule)) return loopCache.get(schedule);
+  const margin = Number.isFinite(schedule.videoMargin) ? schedule.videoMargin : 5;
+  const entries = [];
+  let groupCounter = 0;
+  const addVideo = (id, type, options = {}) => {
+    const item = CATALOG[id];
+    if (!item || !Number.isFinite(item.duration)) return 0;
+    entries.push({
+      type,
+      duration: item.duration,
+      groupId: options.groupId,
+      item: {
+        id, ...item,
+        ...(options.title ? { title: options.title } : {}),
+        ...(options.programDuration ? { programDuration: options.programDuration, programOffset: options.programOffset || 0, groupLast: options.groupLast } : {}),
+        isAdvertising: type === "filler"
+      }
+    });
+    if (margin > 0) entries.push({ type: "pause", duration: margin, groupId: options.groupId });
+    return item.duration + margin;
+  };
+
+  (schedule.sequence || []).forEach((entry) => {
+    if (typeof entry === "string") {
+      addVideo(entry, "program");
+      return;
+    }
+    if (entry?.type === "adBreak") {
+      const groupId = `ad-${groupCounter++}`;
+      const target = Math.max(0, Number(entry.duration) || 120);
+      let used = 0;
+      (entry.items || []).forEach((id) => {
+        const item = CATALOG[id];
+        if (item && used + item.duration + margin <= target) used += addVideo(id, "filler", { groupId });
+      });
+      if (used < target) entries.push({ type: "pause", duration: target - used, groupId });
+      return;
+    }
+    if (entry?.type === "group") {
+      const ids = (entry.items || []).filter((id) => CATALOG[id] && Number.isFinite(CATALOG[id].duration));
+      const groupId = `program-${groupCounter++}`;
+      const programDuration = ids.reduce((total, id) => total + CATALOG[id].duration + margin, 0);
+      let programOffset = 0;
+      ids.forEach((id, index) => {
+        programOffset += addVideo(id, "program", {
+          groupId,
+          title: entry.title,
+          programDuration,
+          programOffset,
+          groupLast: index === ids.length - 1
+        });
+      });
+      return;
+    }
+    if (entry?.type === "pause" && entry.duration > 0) entries.push({ type: "pause", duration: entry.duration });
+  });
+
+  const cycleDuration = entries.reduce((total, entry) => total + entry.duration, 0);
+  const result = { entries, cycleDuration };
+  loopCache.set(schedule, result);
+  return result;
+}
+
+function buildLoopEvents(day, schedule) {
+  const { entries, cycleDuration } = expandedLoop(schedule);
+  if (!cycleDuration) return [];
+  const dayStart = day * 86400;
+  const dayEnd = dayStart + 86400;
+  const phase = ((dayStart % cycleDuration) + cycleDuration) % cycleDuration;
+  let cycleStart = dayStart - phase;
+  const events = [];
+  while (cycleStart < dayEnd) {
+    let cursor = cycleStart;
+    entries.forEach((entry) => {
+      const end = cursor + entry.duration;
+      if (end > dayStart && cursor < dayEnd) {
+        events.push({
+          type: entry.type,
+          groupId: entry.groupId,
+          ...(entry.item ? { item: entry.item } : {}),
+          start: cursor - dayStart,
+          end: end - dayStart
+        });
+      }
+      cursor = end;
+    });
+    cycleStart += cycleDuration;
+  }
+  return events;
+}
+
+function buildDayEvents(day, channelId = activeChannel) {
+  const schedule = SCHEDULES[channelId];
+  if (schedule?.mode === "loop") return buildLoopEvents(day, schedule);
+  if (!schedule || schedule.mode !== "daily") return [];
+  const rotationDay = day - (schedule.rotationAnchorDay || 0);
+  const rotations = schedule.rotations || [];
+  const rotation = rotations.length ? rotations[((rotationDay % rotations.length) + rotations.length) % rotations.length] : null;
+  const rotatingBlocks = (schedule.rotatingBlocks || []).map((block) => {
+    const index = ((rotationDay % block.variants.length) + block.variants.length) % block.variants.length;
+    return { start: block.start, label: block.label, items: block.variants[index] };
+  });
+  const blocks = [...schedule.blocks, ...rotatingBlocks, ...(rotation ? [rotation] : [])].sort((a, b) => parseClock(a.start) - parseClock(b.start));
   const programs = [];
   blocks.forEach((block) => {
     let cursor = parseClock(block.start);
@@ -64,16 +190,21 @@ function buildDayEvents(day) {
 
   const events = [];
   const usedFillers = new Set();
-  let fillerCursor = ((day % CNT_SCHEDULE.fillers.length) + CNT_SCHEDULE.fillers.length) % CNT_SCHEDULE.fillers.length;
+  const fillers = schedule.fillers || [];
+  let fillerCursor = fillers.length ? ((day % fillers.length) + fillers.length) % fillers.length : 0;
 
   const fillGap = (start, end) => {
+    if (schedule.gapMode === "continuity") {
+      if (start < end) events.push({ type: "continuity", start, end });
+      return;
+    }
     let cursor = start;
     while (cursor < end) {
       const remaining = end - cursor;
       let selectedIndex = -1;
-      for (let step = 0; step < CNT_SCHEDULE.fillers.length; step++) {
-        const index = (fillerCursor + step) % CNT_SCHEDULE.fillers.length;
-        const id = CNT_SCHEDULE.fillers[index];
+      for (let step = 0; step < fillers.length; step++) {
+        const index = (fillerCursor + step) % fillers.length;
+        const id = fillers[index];
         const item = CATALOG[id];
         if (!usedFillers.has(id) && item && item.duration <= remaining) {
           selectedIndex = index;
@@ -81,35 +212,55 @@ function buildDayEvents(day) {
         }
       }
       if (selectedIndex < 0) break;
-      const id = CNT_SCHEDULE.fillers[selectedIndex];
+      const id = fillers[selectedIndex];
       const item = CATALOG[id];
       events.push({ type: "filler", item: { id, ...item }, start: cursor, end: cursor + item.duration, guideStart: start, guideEnd: end });
       usedFillers.add(id);
-      fillerCursor = (selectedIndex + 1) % CNT_SCHEDULE.fillers.length;
+      fillerCursor = (selectedIndex + 1) % fillers.length;
       cursor += item.duration;
     }
     if (cursor < end) events.push({ type: "pause", start: cursor, end, guideStart: start, guideEnd: end });
   };
 
+  const dayStart = parseClock(schedule.dayStartsAt);
+  if (programs[0] && programs[0].start > dayStart) fillGap(dayStart, programs[0].start);
   programs.forEach((program, index) => {
     events.push(program);
     const next = programs[index + 1];
     if (next && next.start > program.end) fillGap(program.end, next.start);
   });
   const last = programs.at(-1);
-  const nextDayStart = 86400 + BROADCAST_DAY_START;
-  if (last && last.end < nextDayStart) events.push({ type: "offair", start: last.end, end: nextDayStart });
+  const nextDayStart = 86400 + parseClock(schedule.dayStartsAt);
+  const offAirBoundary = parseClock(schedule.offAirStartsAt || schedule.dayStartsAt) || 86400;
+  if (last) {
+    if (last.end < offAirBoundary) fillGap(last.end, offAirBoundary);
+    const offAirStart = Math.max(last.end, offAirBoundary);
+    if (offAirStart < nextDayStart) events.push({ type: "offair", start: offAirStart, end: nextDayStart });
+  }
   return events.sort((a, b) => a.start - b.start);
 }
 
 function broadcastState(now = new Date()) {
+  const schedule = SCHEDULES[activeChannel];
+  const broadcastDayStart = schedule.mode === "loop" ? 0 : parseClock(schedule.dayStartsAt);
   const madrid = madridParts(now);
-  const day = madrid.seconds < BROADCAST_DAY_START ? madrid.day - 1 : madrid.day;
-  const position = madrid.seconds < BROADCAST_DAY_START ? madrid.seconds + 86400 : madrid.seconds;
+  const day = madrid.seconds < broadcastDayStart ? madrid.day - 1 : madrid.day;
+  const position = madrid.seconds < broadcastDayStart ? madrid.seconds + 86400 : madrid.seconds;
   const events = buildDayEvents(day);
   const index = events.findIndex((event) => position >= event.start && position < event.end);
   const event = events[Math.max(0, index)];
-  const nextProgram = events.slice(Math.max(0, index) + 1).find(candidate => candidate.type === "program") || buildDayEvents(day + 1).find(candidate => candidate.type === "program");
+  let nextProgram;
+  if (schedule.mode === "loop" && event) {
+    const currentAbsoluteEnd = day * 86400 + event.end;
+    nextProgram = [day, day + 1].flatMap((candidateDay) =>
+      buildDayEvents(candidateDay).map((candidate) => ({
+        ...candidate,
+        absoluteStart: candidateDay * 86400 + candidate.start
+      }))
+    ).find((candidate) => candidate.type === "program" && candidate.absoluteStart >= currentAbsoluteEnd && (!event.groupId || candidate.groupId !== event.groupId));
+  } else {
+    nextProgram = events.slice(Math.max(0, index) + 1).find(candidate => candidate.type === "program") || buildDayEvents(day + 1).find(candidate => candidate.type === "program");
+  }
   return { onAir: event?.type === "program" || event?.type === "filler", event, index, events, day, position, nextProgram };
 }
 
@@ -150,14 +301,14 @@ function renderAdvertisingBadge() {
 function renderPlayer(item, offset, key) {
   if (loadedKey === key) return;
   loadedKey = key;
-  suppressChannelBug = item.type === "extra";
+  suppressChannelBug = item.isAdvertising === true;
   const stage = $("player-stage");
   stage.replaceChildren();
   $("channel-bug").hidden = true;
   awaitingDriveClick = false;
   document.querySelector(".player-lock").classList.remove("is-open");
   $("sound-help").classList.remove("is-retry", "is-pass-through");
-  $("sound-help").textContent = "Iniciar vídeo";
+  $("tune-loader").hidden = true;
 
   if (VIDEO_PROVIDER === "html5" && html5Sources[item.driveId]) {
     const video = document.createElement("video");
@@ -166,8 +317,8 @@ function renderPlayer(item, offset, key) {
     video.playsInline = true;
     video.controls = false;
     video.setAttribute("controlsList", "nodownload noplaybackrate");
-    video.addEventListener("loadedmetadata", () => { video.currentTime = offset; video.play().catch(() => $("sound-help").hidden = false); }, { once: true });
-    video.addEventListener("playing", () => { $("channel-bug").hidden = suppressChannelBug; });
+    video.addEventListener("loadedmetadata", () => { video.currentTime = offset; video.play().catch(showActivationControl); }, { once: true });
+    video.addEventListener("playing", () => { hasStartedBroadcast = true; $("channel-bug").hidden = suppressChannelBug; });
     stage.append(video);
     $("drive-note").hidden = true;
   } else {
@@ -186,14 +337,14 @@ function renderPlayer(item, offset, key) {
     $("drive-note").hidden = false;
     document.querySelector(".player-lock").classList.add("is-open");
     $("sound-help").classList.add("is-pass-through");
-    $("sound-help").hidden = false;
+    showActivationControl();
     awaitingDriveClick = true;
   }
 }
 
 function renderProgramGuide(state) {
   const viewport = $("program-guide-scroll");
-  const hourWidth = Math.max(160, viewport.clientWidth / 1.5);
+  const hourWidth = Math.max(190, viewport.clientWidth / 1.35);
   const nowSeconds = state.day * 86400 + state.position;
   const current = state.event;
   const currentGuideStart = current.guideStart ?? current.start;
@@ -206,11 +357,20 @@ function renderProgramGuide(state) {
   guideWindowStart = state.day * 86400 + currentGuideStart;
   const nominalEnd = guideWindowStart + 86400;
   const allEvents = [state.day, state.day + 1, state.day + 2].flatMap((day) =>
-    buildDayEvents(day).map((event) => ({ ...event, absoluteStart: day * 86400 + event.start, absoluteEnd: day * 86400 + event.end }))
+    buildDayEvents(day, activeChannel).map((event) => ({ ...event, absoluteStart: day * 86400 + event.start, absoluteEnd: day * 86400 + event.end }))
   );
-  const guideEvents = allEvents.reduce((result, event) => {
+  const uniqueEvents = [...new Map(allEvents.map((event) => [
+    `${event.absoluteStart}-${event.absoluteEnd}-${event.type}-${event.item?.id || ""}`,
+    event
+  ])).values()].sort((a, b) => a.absoluteStart - b.absoluteStart);
+  const guideEvents = uniqueEvents.reduce((result, event) => {
     const normalized = event.type === "filler" ? { ...event, type: "pause" } : event;
     const previous = result.at(-1);
+    if (previous && normalized.groupId && previous.groupId === normalized.groupId && previous.absoluteEnd === normalized.absoluteStart) {
+      previous.absoluteEnd = normalized.absoluteEnd;
+      if (normalized.type === "program") previous.type = "program";
+      return result;
+    }
     if (previous && previous.type === "pause" && normalized.type === "pause" && previous.absoluteEnd === normalized.absoluteStart) {
       previous.absoluteEnd = normalized.absoluteEnd;
     } else {
@@ -240,9 +400,11 @@ function renderProgramGuide(state) {
 
   const firstFullHour = (Math.floor(guideWindowStart / 3600) + 1) * 3600;
   for (let hourTime = firstFullHour; hourTime < extendedEnd; hourTime += 3600) {
+    const markLeft = ((hourTime - guideWindowStart) / 3600) * hourWidth;
+    if (markLeft < 82) continue;
     const mark = document.createElement("span");
     mark.className = "hour-mark";
-    mark.style.left = `${((hourTime - guideWindowStart) / 3600) * hourWidth}px`;
+    mark.style.left = `${markLeft}px`;
     mark.textContent = `${Math.floor((hourTime % 86400) / 3600)}:00`;
     hourFragment.append(mark);
   }
@@ -255,12 +417,12 @@ function renderProgramGuide(state) {
       const time = document.createElement("time");
       const title = document.createElement("strong");
       const isCurrent = nowSeconds >= programStart && nowSeconds < programEnd;
-      row.className = `guide-item${isCurrent ? " is-current" : ""}${event.type !== "program" ? " is-pause" : ""}`;
+      row.className = `guide-item${isCurrent ? " is-current" : ""}${event.type === "pause" || event.type === "offair" ? " is-pause" : ""}${event.type === "continuity" ? " is-continuity" : ""}`;
       row.setAttribute("role", "listitem");
-      const isEmptyPause = event.type === "pause";
-      const itemTitle = event.type === "program" ? event.item.title : event.type === "offair" ? "Fin de emisión" : "";
-      row.title = isEmptyPause ? "Pausa de emisión" : `${clockFromSeconds(programStart)} · ${itemTitle}`;
-      if (isEmptyPause) row.setAttribute("aria-label", "Pausa de emisión");
+      const isEmptyPause = event.type === "pause" || event.type === "offair";
+      const itemTitle = event.type === "program" ? event.item.title : event.type === "continuity" ? `Continuidad ${CHANNELS[activeChannel].name}` : "";
+      row.title = isEmptyPause ? (event.type === "offair" ? "Fuera de emisión" : "Pausa de emisión") : `${clockFromSeconds(programStart)} · ${itemTitle}`;
+      if (isEmptyPause) row.setAttribute("aria-label", event.type === "offair" ? "Fuera de emisión" : "Pausa de emisión");
       row.style.left = `${((programStart - guideWindowStart) / 3600) * hourWidth}px`;
       row.style.width = `${Math.max(2, (visibleDuration / 3600) * hourWidth - 2)}px`;
       if (!isEmptyPause) {
@@ -278,76 +440,99 @@ function renderProgramGuide(state) {
 }
 
 function renderIntermission(state, key) {
+  clearTimeout(tuneGateTimer);
+  const duration = state.event.end - state.event.start;
+  const isBlackout = state.event.type === "pause" && duration <= 5;
   if (loadedKey !== key) {
     loadedKey = key;
     awaitingDriveClick = false;
     const isOffAir = state.event.type === "offair";
+    const isContinuity = state.event.type === "continuity";
     const stage = $("player-stage");
     stage.replaceChildren();
     const card = document.createElement("div");
-    card.className = "off-air";
-    card.setAttribute("aria-label", isOffAir ? "Fin de emisión" : "Pausa de emisión");
-    card.innerHTML = isOffAir
-      ? `<div class="signal-rings" aria-hidden="true"><i></i><i></i><i></i></div><p class="eyebrow">CNT</p><h1>Fin de emisión</h1><p id="break-countdown" class="countdown"></p>`
-      : "";
+    card.className = `off-air${isContinuity ? " continuity" : ""}${isBlackout ? " blackout" : ""}`;
+    card.setAttribute("aria-label", isBlackout ? "Separador entre vídeos" : isOffAir ? "Fin de emisión" : isContinuity ? `Continuidad ${CHANNELS[activeChannel].name}` : "Pausa de emisión");
+    if (isContinuity) {
+      const alternatives = Object.entries(CHANNELS)
+        .filter(([id]) => id !== activeChannel && isChannelProgrammed(id))
+        .map(([id, channel]) => `<button type="button" data-watch-channel="${id}" style="--switch-color:${channel.color}">Ver ${channel.name}</button>`)
+        .join("");
+      card.innerHTML = `<img src="${CHANNELS[activeChannel].logo}?v=${logoVersion}" alt="${CHANNELS[activeChannel].name}"><p>Continuidad</p>${alternatives ? `<div class="continuity-switch"><span>También en emisión</span>${alternatives}</div>` : ""}`;
+    } else if (!isBlackout) {
+      card.innerHTML = `<strong class="countdown">VOLVEMOS EN <span id="break-countdown">${formatDuration(state.event.end - state.position)}</span></strong>`;
+    }
     stage.append(card);
   }
   const remaining = state.event.end - state.position;
   const countdown = $("break-countdown");
   if (countdown) countdown.textContent = state.event.type === "offair"
-    ? `Volvemos a las 06:00 · faltan ${formatDuration(remaining)}`
-    : `Volvemos en ${formatDuration(remaining)}`;
+    ? `${clockFromSeconds(parseClock(SCHEDULES[activeChannel].dayStartsAt))} · faltan ${formatDuration(remaining)}`
+    : formatDuration(remaining);
   $("channel-bug").hidden = true;
-  if (state.event.type === "pause") renderAdvertisingBadge();
+  if (state.event.type === "pause" && !isBlackout) renderAdvertisingBadge();
   else $("age-badge").hidden = true;
   $("sound-help").hidden = true;
-  document.querySelector(".player-lock").classList.remove("is-open");
+  $("tune-loader").hidden = true;
+  document.querySelector(".player-lock").classList.toggle("is-open", state.event.type === "continuity");
 }
 
 function renderComingUp(state) {
   const overlay = $("coming-up");
+  const screen = $("screen");
   const remaining = state.event.end - state.position;
-  const visible = state.event.type === "program" && remaining <= 20 && remaining > 12;
+  const visible = state.event.type === "program" && (!state.event.groupId || state.event.item.groupLast) && remaining <= 20 && remaining > 12;
   overlay.classList.toggle("is-visible", visible);
+  screen.classList.toggle("coming-up-visible", visible);
   overlay.setAttribute("aria-hidden", String(!visible));
   if (!visible) return;
-  $("coming-up-title").textContent = state.nextProgram?.item.title || "Nueva jornada de CNT";
+  $("coming-up-title").textContent = state.nextProgram?.item.title || `Nueva jornada de ${CHANNELS[activeChannel].name}`;
 }
 
 function render() {
-  if (activeChannel !== "cnt") return;
+  if (testMode || !isChannelProgrammed(activeChannel)) return;
   const now = new Date();
   const state = broadcastState(now);
   if (!state.event) return;
   const stateKey = `${state.day}-${state.event.start}-${state.event.type}`;
   const next = state.nextProgram;
   $("player-stage").hidden = false;
-  $("live-badge").hidden = !state.onAir;
+  $("live-badge").hidden = state.event.type === "offair";
+  $("live-label").textContent = state.event.type === "continuity" ? CHANNELS[activeChannel].name.toUpperCase() : "EN DIRECTO";
+  $("live-badge").classList.toggle("is-channel-label", state.event.type === "continuity");
   $("next-label").textContent = "A CONTINUACIÓN";
-  $("next-title").textContent = next?.item.title || "Nueva jornada de CNT";
-  $("next-time").textContent = next ? clockFromSeconds(next.start) : "06:00";
+  $("next-title").textContent = next?.item.title || `Nueva jornada de ${CHANNELS[activeChannel].name}`;
+  $("next-time").textContent = next ? clockFromSeconds(next.start) : clockFromSeconds(parseClock(SCHEDULES[activeChannel].dayStartsAt));
 
   if (state.onAir) {
-    const itemElapsed = state.position - state.event.start;
-    $("status-kicker").textContent = "AHORA EN CNT";
-    $("current-title").textContent = state.event.item.title;
-    if (state.event.type === "filler") renderAdvertisingBadge();
+    const clipElapsed = state.position - state.event.start;
+    const itemElapsed = clipElapsed + (state.event.item.programOffset || 0);
+    const itemDuration = state.event.item.programDuration || state.event.item.duration;
+    const isAdvertising = state.event.type === "filler";
+    $("status-kicker").textContent = "EN EMISIÓN";
+    $("current-title").textContent = isAdvertising ? "Publicidad" : state.event.item.title;
+    $("program-meta").hidden = false;
+    $("current-rating").textContent = isAdvertising ? "PUBLICIDAD" : state.event.item.rating ? (String(state.event.item.rating).toUpperCase() === "TP" ? "TP" : `+${String(state.event.item.rating).replace("+", "")}`) : "SIN CLASIFICAR";
+    $("current-duration").textContent = formatDuration(itemDuration);
+    if (isAdvertising) renderAdvertisingBadge();
     else renderAgeRating(state.event.item.rating);
     $("elapsed").textContent = formatDuration(itemElapsed);
-    $("remaining").textContent = `−${formatDuration(state.event.end - state.position)}`;
-    $("progress-bar").style.width = `${Math.min(100, (itemElapsed / state.event.item.duration) * 100)}%`;
-    renderPlayer(state.event.item, itemElapsed, stateKey);
+    $("remaining").textContent = `−${formatDuration(itemDuration - itemElapsed)}`;
+    $("progress-bar").style.width = `${Math.min(100, (itemElapsed / itemDuration) * 100)}%`;
+    renderPlayer(state.event.item, clipElapsed, stateKey);
     renderComingUp(state);
   } else {
     const elapsed = state.position - state.event.start;
     const duration = state.event.end - state.event.start;
-    $("status-kicker").textContent = state.event.type === "offair" ? "CNT" : "PAUSA DE EMISIÓN";
-    $("current-title").textContent = state.event.type === "offair" ? "Fin de emisión" : "Volvemos enseguida";
+    $("status-kicker").textContent = state.event.type === "offair" ? CHANNELS[activeChannel].name.toUpperCase() : state.event.type === "continuity" ? `CONTINUIDAD ${CHANNELS[activeChannel].name.toUpperCase()}` : "PAUSA DE EMISIÓN";
+    $("current-title").textContent = state.event.type === "offair" ? `Volvemos a las ${clockFromSeconds(parseClock(SCHEDULES[activeChannel].dayStartsAt))}` : state.event.type === "continuity" ? CHANNELS[activeChannel].name : "Volvemos enseguida";
+    $("program-meta").hidden = true;
     $("elapsed").textContent = formatDuration(elapsed);
     $("remaining").textContent = `−${formatDuration(state.event.end - state.position)}`;
     $("progress-bar").style.width = `${Math.min(100, (elapsed / duration) * 100)}%`;
     renderIntermission(state, stateKey);
     $("coming-up").classList.remove("is-visible");
+    $("screen").classList.remove("coming-up-visible");
     $("coming-up").setAttribute("aria-hidden", "true");
   }
   renderProgramGuide(state);
@@ -357,8 +542,14 @@ $("sound-help").addEventListener("click", () => {
   const media = $("player-stage").querySelector("video");
   if (media) {
     media.play();
+    hasStartedBroadcast = true;
     $("sound-help").hidden = true;
   }
+});
+
+$("player-stage").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-watch-channel]");
+  if (button) setActiveChannel(button.dataset.watchChannel);
 });
 
 function watchDriveActivation() {
@@ -366,6 +557,7 @@ function watchDriveActivation() {
   const iframe = $("player-stage").querySelector("iframe");
   if (iframe && document.activeElement === iframe) {
     awaitingDriveClick = false;
+    hasStartedBroadcast = true;
     iframe.tabIndex = -1;
     document.querySelector(".player-lock").classList.remove("is-open");
     $("sound-help").hidden = true;
@@ -400,8 +592,14 @@ $("screen").addEventListener("touchstart", showPlayerControls, { passive: true }
 $("screen").addEventListener("focusin", showPlayerControls);
 
 function setActiveChannel(id, updateHash = true) {
+  testMode = false;
+  document.body.classList.remove("test-player-mode");
   const channel = CHANNELS[id] || CHANNELS.cnt;
   activeChannel = CHANNELS[id] ? id : "cnt";
+  clearTimeout(tuneGateTimer);
+  tuneGateEndsAt = performance.now() + 5000;
+  hasStartedBroadcast = false;
+  document.documentElement.dataset.channel = activeChannel;
   document.documentElement.style.setProperty("--yellow", channel.color);
   document.title = channel.name;
   $("brand-logo").src = `${channel.logo}?v=${logoVersion}`;
@@ -410,16 +608,18 @@ function setActiveChannel(id, updateHash = true) {
     $("channel-bug").hidden = true;
     $("age-badge").hidden = true;
   $("coming-up").classList.remove("is-visible");
+  $("screen").classList.remove("coming-up-visible");
   $("coming-up").setAttribute("aria-hidden", "true");
   $("guide-title").textContent = channel.name;
-  document.querySelector("footer span").textContent = channel.name;
+  $("footer-channel").textContent = channel.legalName;
+  $("guide-empty").textContent = "Las emisiones empezarán próximamente.";
   document.querySelectorAll(".channel-tab").forEach((tab) => {
     const selected = tab.dataset.channel === activeChannel;
     tab.classList.toggle("is-active", selected);
     tab.setAttribute("aria-selected", String(selected));
   });
 
-  if (channel.programmed) {
+  if (isChannelProgrammed(activeChannel)) {
     $("coming-soon").hidden = true;
     $("player-stage").hidden = false;
     $("progress-track").hidden = false;
@@ -431,16 +631,19 @@ function setActiveChannel(id, updateHash = true) {
     guideKey = "";
     render();
   } else {
+    clearTimeout(tuneGateTimer);
     awaitingDriveClick = false;
     loadedKey = "";
     $("player-stage").replaceChildren();
     $("player-stage").hidden = true;
     $("sound-help").hidden = true;
+    $("tune-loader").hidden = true;
     $("live-badge").hidden = true;
     $("coming-soon").hidden = false;
     $("coming-soon-title").textContent = channel.name;
     $("status-kicker").textContent = channel.type.toUpperCase();
     $("current-title").textContent = "Las emisiones empezarán próximamente";
+    $("program-meta").hidden = true;
     $("progress-track").hidden = true;
     $("time-row").hidden = true;
     document.querySelector(".next-card").hidden = true;
@@ -451,12 +654,61 @@ function setActiveChannel(id, updateHash = true) {
   if (updateHash) history.replaceState(null, "", `#${activeChannel}`);
 }
 
-document.querySelectorAll(".channel-tab").forEach((tab) => {
-  tab.addEventListener("click", () => setActiveChannel(tab.dataset.channel));
-});
-window.addEventListener("hashchange", () => setActiveChannel(location.hash.slice(1), false));
+function showTestPlayer() {
+  testMode = true;
+  activeChannel = "test";
+  document.body.classList.add("test-player-mode");
+  document.documentElement.dataset.channel = "test";
+  document.documentElement.style.setProperty("--yellow", "#fec601");
+  document.title = "Plantilla";
+  clearTimeout(tuneGateTimer);
+  tuneGateEndsAt = performance.now() + 5000;
+  hasStartedBroadcast = false;
+  loadedKey = "";
+  $("coming-soon").hidden = true;
+  $("player-stage").hidden = false;
+  $("live-badge").hidden = true;
+  $("channel-bug").hidden = true;
+  $("age-badge").hidden = true;
+  $("coming-up").classList.remove("is-visible");
+  $("brand-logo").src = `assets/favicon.svg?v=20260923-20`;
+  $("brand-logo").alt = "Plantilla";
+  $("status-kicker").textContent = "PLANTILLA";
+  $("current-title").textContent = "Reproductor de prueba";
+  $("program-meta").hidden = true;
+  $("progress-track").hidden = true;
+  $("time-row").hidden = true;
+  document.querySelector(".next-card").hidden = true;
+  $("guide-title").textContent = "Plantilla";
+  $("program-guide-scroll").hidden = true;
+  $("guide-empty").hidden = false;
+  $("guide-empty").textContent = "Plantilla sin programación.";
+  $("footer-channel").textContent = "Plantilla";
+  document.querySelectorAll(".channel-tab").forEach((tab) => {
+    const selected = tab.dataset.channel === "test";
+    tab.classList.toggle("is-active", selected);
+    tab.setAttribute("aria-selected", String(selected));
+  });
+  renderPlayer({ id: "test-paranormal", ...CATALOG["trailer-paranormal-v01"], isAdvertising: true }, 0, `test-${Date.now()}`);
+  clearTimeout(tuneGateTimer);
+  awaitingDriveClick = false;
+  $("tune-loader").hidden = true;
+  $("sound-help").hidden = true;
+  $("drive-note").hidden = true;
+  document.querySelector(".player-lock").classList.add("is-open");
+  history.replaceState(null, "", "#test");
+}
 
-setActiveChannel(location.hash.slice(1) || "cnt", false);
+document.querySelectorAll(".channel-tab").forEach((tab) => {
+  tab.addEventListener("click", () => tab.dataset.channel === "test" ? showTestPlayer() : setActiveChannel(tab.dataset.channel));
+});
+window.addEventListener("hashchange", () => {
+  if (location.hash.slice(1) === "test") showTestPlayer();
+  else setActiveChannel(location.hash.slice(1), false);
+});
+
+if (location.hash.slice(1) === "test") showTestPlayer();
+else setActiveChannel(location.hash.slice(1) || "cnt", false);
 window.CNT_APP_READY = true;
 showPlayerControls();
 setInterval(render, 1000);
