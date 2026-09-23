@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="CNT: emisión lineal con programación diaria." />
     <meta name="theme-color" content="#080b12" />
-    <meta name="cnt-build" content="20260923-43" />
+    <meta name="cnt-build" content="20260923-49" />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>CNT</title>
-    <link rel="icon" href="assets/favicon.svg?v=20260923-43" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=20260923-43" />
+    <link rel="icon" href="assets/favicon.svg?v=20260923-49" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css?v=20260923-49" />
     <script>
       const currentBuild = document.querySelector('meta[name="cnt-build"]').content;
       fetch(`${location.pathname}?comprobar=${Date.now()}`, { cache: "no-store" })
@@ -67,8 +67,7 @@
       </nav>
       <a id="google-account-link" class="account-link" href="https://accounts.google.com/AccountChooser?continue=https%3A%2F%2Fsites.google.com%2Fview%2Fcntplay-web&amp;flowName=GlifWebSignIn&amp;flowEntry=ServiceLogin" target="_blank" rel="noopener noreferrer" aria-label="Elegir una cuenta de Google" title="Elegir una cuenta de Google">
         <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="8" r="4"></circle>
-          <path d="M4.5 21a7.5 7.5 0 0 1 15 0"></path>
+          <path d="M12 12.25a4.25 4.25 0 1 0 0-8.5 4.25 4.25 0 0 0 0 8.5Zm0 1.75c-4.53 0-8.25 2.32-8.25 5.25 0 .55.45 1 1 1h14.5a1 1 0 0 0 1-1C20.25 16.32 16.53 14 12 14Z"></path>
         </svg>
       </a>
     </header>
@@ -81,7 +80,7 @@
             <div class="player-lock" aria-hidden="true"></div>
             <div class="control-guard" aria-hidden="true"></div>
             <div id="coming-soon" class="coming-soon" hidden>
-              <p class="eyebrow">PRÓXIMAMENTE</p>
+              <p class="eyebrow">PRÓXIMAMENTE...</p>
               <h1 id="coming-soon-title">Nuevas emisiones</h1>
               <p>Las emisiones empezarán próximamente.</p>
             </div>
@@ -101,6 +100,15 @@
             <div id="tune-loader" class="tune-loader" hidden aria-live="polite">
               <span>Preparando emisión…</span>
               <i aria-hidden="true"><b id="tune-loader-bar"></b></i>
+            </div>
+            <button id="video-help-link" class="video-help-link" type="button">¿Problemas para ver la emisión?</button>
+            <div id="video-help-panel" class="video-help-panel" hidden role="dialog" aria-modal="true" aria-labelledby="video-help-title">
+              <strong id="video-help-title">No aparece el vídeo</strong>
+              <p>Inicia sesión en tu cuenta de Google con el botón de debajo. Cuando termines, vuelve a CNT Live y recarga la página para poder ver la emisión.</p>
+              <div>
+                <button id="video-help-close" type="button">Volver</button>
+                <button id="video-help-login" class="is-primary" type="button">Iniciar sesión</button>
+              </div>
             </div>
           </div>
           <p id="drive-note" class="drive-note" hidden>
@@ -127,10 +135,9 @@
           </div>
         </aside>
 
-        <section class="program-guide" aria-labelledby="guide-title">
+        <section class="program-guide" aria-label="Parrilla de programación">
           <div class="guide-heading">
             <span class="eyebrow">PROGRAMACIÓN DE HOY</span>
-            <h2 id="guide-title">CNT</h2>
           </div>
           <div id="program-guide-scroll" class="program-guide-scroll">
             <div id="guide-timeline" class="guide-timeline">
@@ -152,13 +159,13 @@
     </footer>
 
     <noscript>Esta emisión necesita JavaScript para sincronizarse con la hora actual.</noscript>
-    <script src="data/catalog.js?v=20260923-43"></script>
-    <script src="data/schedules/cnt.js?v=20260923-43"></script>
-    <script src="data/schedules/weazel.js?v=20260923-43"></script>
-    <script src="data/schedules/comedy-tv.js?v=20260923-43"></script>
-    <script src="data/schedules/metv.js?v=20260923-43"></script>
-    <script src="data/schedules/the-canyon-channel.js?v=20260923-43"></script>
-    <script src="data/schedules/emotion.js?v=20260923-43"></script>
-    <script src="app.js?v=20260923-43"></script>
+    <script src="data/catalog.js?v=20260923-49"></script>
+    <script src="data/schedules/cnt.js?v=20260923-49"></script>
+    <script src="data/schedules/weazel.js?v=20260923-49"></script>
+    <script src="data/schedules/comedy-tv.js?v=20260923-49"></script>
+    <script src="data/schedules/metv.js?v=20260923-49"></script>
+    <script src="data/schedules/the-canyon-channel.js?v=20260923-49"></script>
+    <script src="data/schedules/emotion.js?v=20260923-49"></script>
+    <script src="app.js?v=20260923-49"></script>
   </body>
 </html>

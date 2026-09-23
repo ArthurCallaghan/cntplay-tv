@@ -46,9 +46,9 @@ html[data-channel="emotion"] .brand-logo { height: 64px; max-width: 128px; }
 .channel-tab::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 2px; background: var(--tab-color); }
 .channel-tab:hover, .channel-tab:focus-visible { color: var(--ink); }
 .channel-tab.is-active { color: var(--ink); border-bottom-color: var(--tab-color); }
-.account-link { display: grid; flex: 0 0 auto; place-items: center; width: 38px; height: 38px; margin-left: 10px; border: 1px solid var(--line); border-radius: 50%; color: var(--muted); background: rgba(255,255,255,.035); transition: color .2s ease, border-color .2s ease, background .2s ease; }
+.account-link { display: grid; flex: 0 0 auto; place-items: center; width: 34px; height: 34px; margin-left: 10px; border: 1px solid var(--line); border-radius: 50%; color: var(--muted); background: rgba(255,255,255,.035); transition: color .2s ease, border-color .2s ease, background .2s ease; }
 .account-link:hover, .account-link:focus-visible { color: var(--ink); border-color: var(--yellow); background: color-mix(in srgb, var(--yellow) 10%, transparent); }
-.account-link svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.account-link svg { display: block; width: 18px; height: 18px; fill: currentColor; shape-rendering: geometricPrecision; }
 
 main { padding: 42px 0 52px; }
 .broadcast { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 28px; align-items: stretch; }
@@ -141,6 +141,14 @@ html[data-channel="metv"] .screen:-webkit-full-screen .channel-bug { width: clam
 .tune-loader i { display: block; overflow: hidden; width: min(300px, 58vw); height: 5px; background: rgba(255,255,255,.16); }
 .tune-loader b { display: block; width: 0; height: 100%; background: var(--yellow); animation: tune-progress var(--tune-wait, 2500ms) linear forwards; }
 @keyframes tune-progress { to { width: 100%; } }
+.video-help-link { position: absolute; z-index: 10; right: 27px; bottom: 25px; border: 0; padding: 0; color: rgba(255,255,255,.94); background: transparent; font: inherit; font-size: .82rem; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; text-shadow: 0 2px 5px rgba(0,0,0,.95), 0 0 8px rgba(0,0,0,.7); cursor: pointer; white-space: nowrap; }
+.video-help-link:hover, .video-help-link:focus-visible { color: #fff; }
+.video-help-panel { position: absolute; z-index: 12; inset: 0; display: grid; align-content: center; justify-items: center; gap: 14px; padding: clamp(24px, 6vw, 64px); color: #fff; text-align: center; background: #020305; }
+.video-help-panel strong { font-size: clamp(1.35rem, 3vw, 2.2rem); }
+.video-help-panel p { max-width: 590px; margin: 0; color: #c7ccd5; font-size: clamp(.82rem, 1.5vw, 1rem); line-height: 1.55; }
+.video-help-panel div { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 4px; }
+.video-help-panel button { border: 1px solid rgba(255,255,255,.28); padding: 10px 14px; color: #fff; background: #111620; font: inherit; font-size: .8rem; font-weight: 800; cursor: pointer; }
+.video-help-panel button.is-primary { border-color: var(--yellow); color: #090b0f; background: var(--yellow); }
 .drive-note { display: none !important; }
 .coming-soon { position: absolute; z-index: 2; inset: 0; display: grid; align-content: center; justify-items: center; padding: 30px; text-align: center; background: radial-gradient(circle at center, color-mix(in srgb, var(--yellow) 18%, #080b12), #05070b 65%); }
 .coming-soon h1 { margin: 10px 0 3px; font-size: clamp(2rem, 5vw, 4rem); line-height: 1; letter-spacing: -.05em; }

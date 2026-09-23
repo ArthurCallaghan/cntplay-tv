@@ -3,7 +3,7 @@
 // La parrilla y el proveedor de vídeo están aislados aquí para facilitar el cambio a MP4 o HLS.
 const TIME_ZONE = "Europe/Madrid";
 const CHANNELS = {
-  cnt: { name: "CNT", legalName: "CNT", color: "#fec601", logo: "assets/cnt-logo.png", type: "Próximamente…" },
+  cnt: { name: "CNT", legalName: "CNT", color: "#fec601", logo: "assets/cnt-logo.png", type: "Próximamente..." },
   weazel: { name: "Weazel", legalName: "Weazel", color: "#cf0000", logo: "assets/weazel-logo.png", type: "Segundo generalista" },
   comedy: { name: "CCC", legalName: "Conglomerated Comedy Channel", color: "#2475ba", logo: "assets/comedy-tv-logo.png", type: "Comedia" },
   metv: { name: "MeTV", legalName: "Music Entertainment TV", color: "#44cafe", logo: "assets/metv-logo.png", type: "Música" },
@@ -35,12 +35,22 @@ let activeChannel = "cnt";
 let suppressChannelBug = false;
 let hasStartedBroadcast = false;
 let tuneGateTimer;
+let videoHelpTimer;
+let videoHelpReady = false;
 let tuneGateEndsAt = performance.now() + 2500;
 const logoVersion = Date.now();
 
+function updateVideoHelpVisibility() {
+  const link = $("video-help-link");
+  const panel = $("video-help-panel");
+  if (!link || !panel) return;
+  link.hidden = !videoHelpReady || hasStartedBroadcast || !isChannelProgrammed(activeChannel) || !panel.hidden;
+  if (hasStartedBroadcast) panel.hidden = true;
+}
+
 const googleAccountLink = $("google-account-link");
-if (googleAccountLink) {
-  googleAccountLink.addEventListener("click", (event) => {
+function openGoogleAccountWindow(event) {
+  if (!googleAccountLink) return;
     const width = 520;
     const height = 700;
     const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
@@ -51,15 +61,15 @@ if (googleAccountLink) {
       `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
     );
     if (!accountWindow) return;
-    event.preventDefault();
+    event?.preventDefault();
     accountWindow.focus();
     const closeWatcher = window.setInterval(() => {
       if (!accountWindow.closed) return;
       window.clearInterval(closeWatcher);
       window.focus();
     }, 500);
-  });
 }
+if (googleAccountLink) googleAccountLink.addEventListener("click", openGoogleAccountWindow);
 
 function isChannelProgrammed(id) {
   return ["daily", "loop"].includes(SCHEDULES[id]?.mode);
@@ -80,6 +90,13 @@ function showActivationControl() {
   loader.hidden = true;
   button.textContent = hasStartedBroadcast ? "Seguir con la emisión" : "Ver emisión";
   button.hidden = false;
+  clearTimeout(videoHelpTimer);
+  videoHelpReady = false;
+  updateVideoHelpVisibility();
+  videoHelpTimer = setTimeout(() => {
+    videoHelpReady = true;
+    updateVideoHelpVisibility();
+  }, 2000);
 }
 
 function madridParts(date = new Date()) {
@@ -371,7 +388,7 @@ function renderPlayer(item, offset, key) {
     video.controls = false;
     video.setAttribute("controlsList", "nodownload noplaybackrate");
     video.addEventListener("loadedmetadata", () => { video.currentTime = offset; video.play().catch(showActivationControl); }, { once: true });
-    video.addEventListener("playing", () => { hasStartedBroadcast = true; $("channel-bug").hidden = suppressChannelBug; });
+    video.addEventListener("playing", () => { hasStartedBroadcast = true; updateVideoHelpVisibility(); $("channel-bug").hidden = suppressChannelBug; });
     stage.append(video);
     $("drive-note").hidden = true;
   } else {
@@ -618,6 +635,7 @@ $("sound-help").addEventListener("click", () => {
   if (media) {
     media.play();
     hasStartedBroadcast = true;
+    updateVideoHelpVisibility();
     $("sound-help").hidden = true;
   }
 });
@@ -633,6 +651,7 @@ function watchDriveActivation() {
   if (iframe && document.activeElement === iframe) {
     awaitingDriveClick = false;
     hasStartedBroadcast = true;
+    updateVideoHelpVisibility();
     iframe.tabIndex = -1;
     document.querySelector(".player-lock").classList.remove("is-open");
     $("sound-help").hidden = true;
@@ -678,8 +697,12 @@ function setActiveChannel(id, updateHash = true) {
   const channel = CHANNELS[id] || CHANNELS.cnt;
   activeChannel = CHANNELS[id] ? id : "cnt";
   clearTimeout(tuneGateTimer);
+  clearTimeout(videoHelpTimer);
   tuneGateEndsAt = performance.now() + 2500;
   hasStartedBroadcast = false;
+  videoHelpReady = false;
+  $("video-help-panel").hidden = true;
+  updateVideoHelpVisibility();
   document.documentElement.dataset.channel = activeChannel;
   document.documentElement.style.setProperty("--yellow", channel.color);
   document.title = `${channel.name} Live`;
@@ -692,7 +715,6 @@ function setActiveChannel(id, updateHash = true) {
   $("coming-up").classList.remove("is-visible");
   $("screen").classList.remove("coming-up-visible");
   $("coming-up").setAttribute("aria-hidden", "true");
-  $("guide-title").textContent = channel.name;
   $("footer-channel").textContent = channel.legalName;
   $("guide-empty").textContent = "Las emisiones empezarán próximamente.";
   document.querySelectorAll(".channel-tab").forEach((tab) => {
@@ -713,6 +735,7 @@ function setActiveChannel(id, updateHash = true) {
     guideKey = "";
     render();
   } else {
+    updateVideoHelpVisibility();
     clearTimeout(tuneGateTimer);
     awaitingDriveClick = false;
     loadedKey = "";
@@ -741,6 +764,16 @@ function setActiveChannel(id, updateHash = true) {
 document.querySelectorAll(".channel-tab").forEach((tab) => {
   tab.addEventListener("click", () => setActiveChannel(tab.dataset.channel));
 });
+
+$("video-help-link").addEventListener("click", () => {
+  $("video-help-panel").hidden = false;
+  updateVideoHelpVisibility();
+});
+$("video-help-close").addEventListener("click", () => {
+  $("video-help-panel").hidden = true;
+  updateVideoHelpVisibility();
+});
+$("video-help-login").addEventListener("click", openGoogleAccountWindow);
 window.addEventListener("hashchange", () => {
   setActiveChannel(location.hash.slice(1), false);
 });
