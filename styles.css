@@ -141,7 +141,10 @@ html[data-channel="metv"] .screen:-webkit-full-screen .channel-bug { width: clam
 .tune-loader i { display: block; overflow: hidden; width: min(300px, 58vw); height: 5px; background: rgba(255,255,255,.16); }
 .tune-loader b { display: block; width: 0; height: 100%; background: var(--yellow); animation: tune-progress var(--tune-wait, 2500ms) linear forwards; }
 @keyframes tune-progress { to { width: 100%; } }
-.video-help-link { position: absolute; z-index: 10; right: 27px; bottom: 25px; border: 0; padding: 0; color: rgba(255,255,255,.94); background: transparent; font: inherit; font-size: .82rem; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; text-shadow: 0 2px 5px rgba(0,0,0,.95), 0 0 8px rgba(0,0,0,.7); cursor: pointer; white-space: nowrap; }
+.video-help-link { position: absolute; z-index: 10; right: 27px; bottom: 25px; border: 0; padding: 0 0 4px; color: #c5c5c5; background: transparent; font: inherit; font-size: .82rem; font-weight: 650; text-decoration: none; filter: drop-shadow(0 2px 3px rgba(0,0,0,.95)); cursor: pointer; white-space: nowrap; transition: color .2s ease; }
+.video-help-link::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: currentColor; }
+.video-help-link:not([hidden]) { animation: video-help-appear .4s ease both; }
+@keyframes video-help-appear { from { opacity: 0; } to { opacity: 1; } }
 .video-help-link:hover, .video-help-link:focus-visible { color: #fff; }
 .video-help-panel { position: absolute; z-index: 12; inset: 0; display: grid; align-content: center; justify-items: center; gap: 14px; padding: clamp(24px, 6vw, 64px); color: #fff; text-align: center; background: #020305; }
 .video-help-panel strong { font-size: clamp(1.35rem, 3vw, 2.2rem); }

@@ -371,6 +371,15 @@ function renderTestingBadge() {
 function renderPlayer(item, offset, key) {
   if (loadedKey === key) return;
   loadedKey = key;
+  clearTimeout(tuneGateTimer);
+  clearTimeout(videoHelpTimer);
+  tuneGateEndsAt = performance.now() + 2500;
+  videoHelpReady = false;
+  updateVideoHelpVisibility();
+  const loadingBar = $("tune-loader-bar");
+  loadingBar.style.animation = "none";
+  void loadingBar.offsetWidth;
+  loadingBar.style.animation = "";
   suppressChannelBug = item.isAdvertising === true;
   const stage = $("player-stage");
   stage.replaceChildren();
@@ -681,7 +690,7 @@ function hidePlayerControlsSoon() {
 
 function updateFavicon(color, official = false) {
   const foreground = official ? "#080b12" : "white";
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="13" fill="${color}"/><rect x="13" y="17" width="38" height="29" rx="5" fill="none" stroke="${foreground}" stroke-width="5"/><path d="M23 51h18M25 10l7 7 7-7" fill="none" stroke="${foreground}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="${color}"/><path d="M11 5l5 4 5-4" fill="none" stroke="${foreground}" stroke-width="2" stroke-linecap="round"/><rect x="6" y="9" width="20" height="16" rx="3" fill="${foreground}"/><rect x="9" y="12" width="14" height="10" rx="1" fill="${color}"/><path d="M11 26h10v2H11z" fill="${foreground}"/></svg>`;
   document.querySelector('link[rel="icon"]').href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
