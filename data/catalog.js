@@ -22,7 +22,7 @@
   const seconds = (value) => value === null ? null : value.split(":").reduce((sum, part) => sum * 60 + Number(part), 0);
   const addEpisodes = (prefix, series, block, rows) => rows.forEach(([number, duration, driveId]) => {
     const id = `${prefix}${String(number).replace(".", "-").padStart(2, "0")}`;
-    const separator = series === "Paranormal" ? ":" : " |";
+    const separator = " |";
     catalog[id] = {
       title: `${series}${separator} ${block} - Episodio ${number}`,
       duration: seconds(duration), rating: ratingFor(id), driveId, type: "episode", series, block, episode: number
@@ -119,8 +119,8 @@
 
   // Avances autorizados para rellenar pausas (no aparecen como programas en la guía).
   addExtra("trailer-caos-s01", "Tráiler · Caos en Strawberry T1", "1:50", "16I56QiStywz4QRjO0j_-iIkf3FEzHHDg", "trailer");
-  addExtra("teaser-paranormal-prologo", "Teaser · Paranormal: Prólogo", "0:32", "1hfa9DihkM3-VE6g_KITMxyS-J0_oC-LC", "trailer");
-  addExtra("trailer-paranormal-v01", "Tráiler · Paranormal: Volumen 1", "2:13", "1nHYGPjwemmQyR0DlUSd1m2XGDnl2j8_I", "trailer");
+  addExtra("teaser-paranormal-prologo", "Teaser · Paranormal | Prólogo", "0:32", "1hfa9DihkM3-VE6g_KITMxyS-J0_oC-LC", "trailer");
+  addExtra("trailer-paranormal-v01", "Tráiler · Paranormal | Volumen 1", "2:13", "1nHYGPjwemmQyR0DlUSd1m2XGDnl2j8_I", "trailer");
   addExtra("trailer-three-kind-s01", "Tráiler · Three of a Kind T1", "1:28", "1stdCPMzsqnSlfQdRA6URWR8rYQwPbP5e", "trailer");
   addExtra("trailer-three-kind-s02", "Tráiler · Three of a Kind T2", "1:13", "1LoHbg3wrwg62AEjGwXzhRVUedRZifklM", "trailer");
   addExtra("trailer-tumba-faraon", "Tráiler · La Tumba del Faraón", "0:50", "17skylH2RIKkfTfMVIO0BTtxrum7qja7i", "trailer");

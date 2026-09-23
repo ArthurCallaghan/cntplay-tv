@@ -205,6 +205,7 @@ function buildLoopEvents(day, schedule) {
           groupId: entry.groupId ? `${entry.groupId}-${cycleStart}` : undefined,
           ...(entry.adDuration ? { adDuration: entry.adDuration, adOffset: entry.adOffset || 0 } : {}),
           ...(entry.item ? { item: entry.item } : {}),
+          ...(entry.groupId ? { guideStart: cursor - dayStart - (entry.item?.blockOffset ?? entry.item?.programOffset ?? entry.adOffset ?? 0) } : {}),
           start: cursor - dayStart,
           end: end - dayStart
         });
@@ -440,7 +441,7 @@ function renderProgramGuide(state) {
   guideKey = key;
   guideWindowStart = state.day * 86400 + currentGuideStart;
   const nominalEnd = guideWindowStart + 86400;
-  const allEvents = [state.day, state.day + 1, state.day + 2].flatMap((day) =>
+  const allEvents = [state.day - 1, state.day, state.day + 1, state.day + 2].flatMap((day) =>
     buildDayEvents(day, activeChannel).map((event) => ({ ...event, absoluteStart: day * 86400 + event.start, absoluteEnd: day * 86400 + event.end }))
   );
   const uniqueEvents = [...new Map(allEvents.map((event) => [
@@ -678,12 +679,29 @@ function watchDriveActivation() {
   }
 }
 
-$("fullscreen-button").addEventListener("click", () => {
-  if (document.fullscreenElement) {
-    document.exitFullscreen();
-  } else {
-    $("screen").requestFullscreen();
+function setExpandedPlayer(enabled) {
+  $("screen").classList.toggle("is-expanded", enabled);
+  document.body.classList.toggle("player-expanded", enabled);
+  $("fullscreen-button").setAttribute("aria-label", enabled ? "Salir de pantalla completa" : "Ver a pantalla completa");
+  showPlayerControls();
+}
+$("fullscreen-button").addEventListener("click", async () => {
+  const player = $("screen");
+  if (player.classList.contains("is-expanded")) return setExpandedPlayer(false);
+  try {
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      await (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    } else {
+      const request = player.requestFullscreen || player.webkitRequestFullscreen;
+      if (request) await request.call(player);
+      else setExpandedPlayer(true);
+    }
+  } catch {
+    setExpandedPlayer(true);
   }
+});
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape") setExpandedPlayer(false);
 });
 
 function showPlayerControls() {
