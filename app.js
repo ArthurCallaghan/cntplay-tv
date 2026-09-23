@@ -798,6 +798,11 @@ function setActiveChannel(id, updateHash = true) {
   }
 }
 
+document.querySelector(".brand").addEventListener("click", (event) => {
+  event.preventDefault();
+  location.reload();
+});
+
 document.querySelectorAll(".channel-tab").forEach((tab) => {
   tab.addEventListener("click", () => setActiveChannel(tab.dataset.channel));
 });
