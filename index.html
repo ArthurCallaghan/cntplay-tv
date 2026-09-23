@@ -5,13 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="CNT: emisión lineal con programación diaria." />
     <meta name="theme-color" content="#080b12" />
-    <meta name="cnt-build" content="20260923-52" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="CNT Live" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+    <meta name="cnt-build" content="20260923-57" />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>CNT</title>
-    <link rel="icon" href="assets/favicon.svg?v=20260923-52" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=20260923-52" />
+    <link rel="icon" href="assets/favicon.svg?v=20260923-57" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css?v=20260923-57" />
     <script>
       const currentBuild = document.querySelector('meta[name="cnt-build"]').content;
       fetch(`${location.pathname}?comprobar=${Date.now()}`, { cache: "no-store" })
@@ -32,8 +36,7 @@
         if (source) window.CNT_LOAD_ERRORS.push(source);
         else if (event.message) window.CNT_LOAD_ERRORS.push(event.message);
       }, true);
-      if ("serviceWorker" in navigator) navigator.serviceWorker.getRegistrations().then(registrations => registrations.forEach(registration => registration.unregister()));
-      if ("caches" in window) caches.keys().then(names => names.forEach(name => caches.delete(name)));
+      if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).catch(() => {});
       window.addEventListener("load", () => setTimeout(() => {
         if (window.CNT_APP_READY) {
           sessionStorage.removeItem("cnt-recovery-attempted");
@@ -105,10 +108,10 @@
             <button id="video-help-link" class="video-help-link" type="button" hidden>¿Problemas para cargar la emisión?</button>
             <div id="video-help-panel" class="video-help-panel" hidden role="dialog" aria-modal="true" aria-labelledby="video-help-title">
               <strong id="video-help-title">No aparece el vídeo</strong>
-              <p>Inicia sesión en tu cuenta de Google con el botón de debajo. Cuando termines, vuelve a CNT Live y recarga la página para poder ver la emisión.</p>
+              <p>Prueba a recargar la página. Si eso no funciona, prueba a iniciar sesión en Google con el icono de usuario de la barra superior. Cuando hayas iniciado sesión, cierra esa ventana para volver a CNT Live y recarga la página de nuevo.</p>
               <div>
                 <button id="video-help-close" type="button">Volver</button>
-                <button id="video-help-login" class="is-primary" type="button">Iniciar sesión</button>
+                <button id="video-help-reload" class="is-primary" type="button">Recargar página</button>
               </div>
             </div>
           </div>
@@ -160,13 +163,13 @@
     </footer>
 
     <noscript>Esta emisión necesita JavaScript para sincronizarse con la hora actual.</noscript>
-    <script src="data/catalog.js?v=20260923-52"></script>
-    <script src="data/schedules/cnt.js?v=20260923-52"></script>
-    <script src="data/schedules/weazel.js?v=20260923-52"></script>
-    <script src="data/schedules/comedy-tv.js?v=20260923-52"></script>
-    <script src="data/schedules/metv.js?v=20260923-52"></script>
-    <script src="data/schedules/the-canyon-channel.js?v=20260923-52"></script>
-    <script src="data/schedules/emotion.js?v=20260923-52"></script>
-    <script src="app.js?v=20260923-52"></script>
+    <script src="data/catalog.js?v=20260923-57"></script>
+    <script src="data/schedules/cnt.js?v=20260923-57"></script>
+    <script src="data/schedules/weazel.js?v=20260923-57"></script>
+    <script src="data/schedules/comedy-tv.js?v=20260923-57"></script>
+    <script src="data/schedules/metv.js?v=20260923-57"></script>
+    <script src="data/schedules/the-canyon-channel.js?v=20260923-57"></script>
+    <script src="data/schedules/emotion.js?v=20260923-57"></script>
+    <script src="app.js?v=20260923-57"></script>
   </body>
 </html>

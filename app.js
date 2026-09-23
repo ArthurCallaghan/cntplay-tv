@@ -34,6 +34,7 @@ let controlsTimer;
 let activeChannel = "cnt";
 let suppressChannelBug = false;
 let hasStartedBroadcast = false;
+let hasStartedCurrentVideo = false;
 let tuneGateTimer;
 let videoHelpTimer;
 let videoHelpReady = false;
@@ -44,8 +45,8 @@ function updateVideoHelpVisibility() {
   const link = $("video-help-link");
   const panel = $("video-help-panel");
   if (!link || !panel) return;
-  link.hidden = !videoHelpReady || hasStartedBroadcast || !isChannelProgrammed(activeChannel) || !panel.hidden;
-  if (hasStartedBroadcast) panel.hidden = true;
+  link.hidden = !videoHelpReady || hasStartedCurrentVideo || !isChannelProgrammed(activeChannel) || !panel.hidden;
+  if (hasStartedCurrentVideo) panel.hidden = true;
 }
 
 const googleAccountLink = $("google-account-link");
@@ -371,6 +372,8 @@ function renderTestingBadge() {
 function renderPlayer(item, offset, key) {
   if (loadedKey === key) return;
   loadedKey = key;
+  hasStartedCurrentVideo = false;
+  $("video-help-panel").hidden = true;
   clearTimeout(tuneGateTimer);
   clearTimeout(videoHelpTimer);
   tuneGateEndsAt = performance.now() + 2500;
@@ -397,7 +400,7 @@ function renderPlayer(item, offset, key) {
     video.controls = false;
     video.setAttribute("controlsList", "nodownload noplaybackrate");
     video.addEventListener("loadedmetadata", () => { video.currentTime = offset; video.play().catch(showActivationControl); }, { once: true });
-    video.addEventListener("playing", () => { hasStartedBroadcast = true; updateVideoHelpVisibility(); $("channel-bug").hidden = suppressChannelBug; });
+    video.addEventListener("playing", () => { hasStartedBroadcast = true; hasStartedCurrentVideo = true; updateVideoHelpVisibility(); $("channel-bug").hidden = suppressChannelBug; });
     stage.append(video);
     $("drive-note").hidden = true;
   } else {
@@ -521,6 +524,10 @@ function renderProgramGuide(state) {
 }
 
 function renderIntermission(state, key) {
+  clearTimeout(videoHelpTimer);
+  videoHelpReady = false;
+  $("video-help-panel").hidden = true;
+  updateVideoHelpVisibility();
   clearTimeout(tuneGateTimer);
   const duration = state.event.end - state.event.start;
   const isBlackout = state.event.type === "pause" && duration <= 5;
@@ -542,7 +549,7 @@ function renderIntermission(state, key) {
       card.innerHTML = `<img src="${CHANNELS[activeChannel].logo}?v=${logoVersion}" alt="${CHANNELS[activeChannel].name}"><p>Continuidad</p>${alternatives ? `<div class="continuity-switch"><span>También en emisión</span>${alternatives}</div>` : ""}`;
     } else if (!isBlackout) {
       const returnWith = state.nextProgram?.item.title || `Nueva jornada de ${CHANNELS[activeChannel].name}`;
-      card.innerHTML = `<strong class="countdown">VOLVEMOS EN <span id="break-countdown">${formatDuration(state.event.end - state.position)}</span></strong><span class="break-next">A CONTINUACIÓN: ${returnWith.toLocaleUpperCase("es-ES")}</span>`;
+      card.innerHTML = `<p class="pause-heading">${CHANNELS[activeChannel].legalName.toLocaleUpperCase("es-ES")}</p><strong class="countdown">VOLVEMOS EN <span id="break-countdown">${formatDuration(state.event.end - state.position)}</span></strong><span class="break-next">A CONTINUACIÓN: ${returnWith.toLocaleUpperCase("es-ES")}</span>`;
     }
     stage.append(card);
   }
@@ -644,6 +651,7 @@ $("sound-help").addEventListener("click", () => {
   if (media) {
     media.play();
     hasStartedBroadcast = true;
+    hasStartedCurrentVideo = true;
     updateVideoHelpVisibility();
     $("sound-help").hidden = true;
   }
@@ -660,6 +668,7 @@ function watchDriveActivation() {
   if (iframe && document.activeElement === iframe) {
     awaitingDriveClick = false;
     hasStartedBroadcast = true;
+    hasStartedCurrentVideo = true;
     updateVideoHelpVisibility();
     iframe.tabIndex = -1;
     document.querySelector(".player-lock").classList.remove("is-open");
@@ -709,6 +718,7 @@ function setActiveChannel(id, updateHash = true) {
   clearTimeout(videoHelpTimer);
   tuneGateEndsAt = performance.now() + 2500;
   hasStartedBroadcast = false;
+  hasStartedCurrentVideo = false;
   videoHelpReady = false;
   $("video-help-panel").hidden = true;
   updateVideoHelpVisibility();
@@ -782,7 +792,7 @@ $("video-help-close").addEventListener("click", () => {
   $("video-help-panel").hidden = true;
   updateVideoHelpVisibility();
 });
-$("video-help-login").addEventListener("click", openGoogleAccountWindow);
+$("video-help-reload").addEventListener("click", () => location.reload());
 window.addEventListener("hashchange", () => {
   setActiveChannel(location.hash.slice(1), false);
 });
