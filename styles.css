@@ -29,7 +29,7 @@ body {
   min-height: 104px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   border-bottom: 1px solid var(--line);
 }
 
@@ -41,11 +41,14 @@ html[data-channel="emotion"] .brand-logo { height: 64px; max-width: 128px; }
 .brand-name { font-size: 1.45rem; font-weight: 850; letter-spacing: 0.1em; }
 .brand-channel { color: var(--muted); border-left: 1px solid var(--line); padding-left: 12px; font-size: 0.82rem; letter-spacing: 0.16em; }
 
-.channel-tabs { display: flex; min-width: 0; align-self: stretch; overflow-x: auto; scrollbar-width: thin; }
+.channel-tabs { display: flex; min-width: 0; align-self: stretch; margin-left: auto; overflow-x: auto; scrollbar-width: thin; }
 .channel-tab { position: relative; flex: 0 0 auto; border: 0; border-bottom: 3px solid transparent; padding: 0 13px; color: var(--muted); background: transparent; font: inherit; font-size: .78rem; font-weight: 760; cursor: pointer; white-space: nowrap; }
 .channel-tab::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 2px; background: var(--tab-color); }
 .channel-tab:hover, .channel-tab:focus-visible { color: var(--ink); }
 .channel-tab.is-active { color: var(--ink); border-bottom-color: var(--tab-color); }
+.account-link { display: grid; flex: 0 0 auto; place-items: center; width: 38px; height: 38px; margin-left: 10px; border: 1px solid var(--line); border-radius: 50%; color: var(--muted); background: rgba(255,255,255,.035); transition: color .2s ease, border-color .2s ease, background .2s ease; }
+.account-link:hover, .account-link:focus-visible { color: var(--ink); border-color: var(--yellow); background: color-mix(in srgb, var(--yellow) 10%, transparent); }
+.account-link svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
 
 main { padding: 42px 0 52px; }
 .broadcast { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 28px; align-items: stretch; }
@@ -176,8 +179,8 @@ html[data-channel="metv"] .screen:-webkit-full-screen .channel-bug { width: clam
 .guide-item strong { display: block; overflow: hidden; font-size: .92rem; line-height: 1.28; text-overflow: ellipsis; }
 .guide-item.is-clipped-start { border-left-style: dashed; }
 .guide-item.is-clipped-end { border-right-style: dashed; }
-.guide-now-line { position: absolute; z-index: 4; top: 0; bottom: 5px; width: 2px; background: var(--red); pointer-events: none; }
-.guide-now-line::before { content: ""; position: absolute; left: -4px; top: 0; border: 5px solid transparent; border-top-color: var(--red); }
+.guide-now-line { position: absolute; z-index: 4; top: 0; bottom: 5px; width: 2px; background: #fff; box-shadow: 0 0 7px rgba(255,255,255,.42); pointer-events: none; }
+.guide-now-line::before { content: ""; position: absolute; left: -4px; top: 0; border: 5px solid transparent; border-top-color: #fff; }
 .guide-empty { min-height: 150px; display: grid; place-items: center; border: 1px solid var(--line); color: var(--muted); background: #0d1119; }
 
 footer { display: grid; grid-template-columns: 1fr auto; gap: 18px 28px; padding: 22px 0 34px; border-top: 1px solid var(--line); color: var(--muted); font-size: .8rem; }

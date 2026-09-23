@@ -3,7 +3,7 @@
 // La parrilla y el proveedor de vídeo están aislados aquí para facilitar el cambio a MP4 o HLS.
 const TIME_ZONE = "Europe/Madrid";
 const CHANNELS = {
-  cnt: { name: "CNT", legalName: "CNT", color: "#fec601", logo: "assets/cnt-logo.png", type: "Generalista" },
+  cnt: { name: "CNT", legalName: "CNT", color: "#fec601", logo: "assets/cnt-logo.png", type: "Próximamente…" },
   weazel: { name: "Weazel", legalName: "Weazel", color: "#cf0000", logo: "assets/weazel-logo.png", type: "Segundo generalista" },
   comedy: { name: "CCC", legalName: "Conglomerated Comedy Channel", color: "#2475ba", logo: "assets/comedy-tv-logo.png", type: "Comedia" },
   metv: { name: "MeTV", legalName: "Music Entertainment TV", color: "#44cafe", logo: "assets/metv-logo.png", type: "Música" },
@@ -37,6 +37,29 @@ let hasStartedBroadcast = false;
 let tuneGateTimer;
 let tuneGateEndsAt = performance.now() + 2500;
 const logoVersion = Date.now();
+
+const googleAccountLink = $("google-account-link");
+if (googleAccountLink) {
+  googleAccountLink.addEventListener("click", (event) => {
+    const width = 520;
+    const height = 700;
+    const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
+    const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
+    const accountWindow = window.open(
+      googleAccountLink.href,
+      "cnt-google-account",
+      `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+    );
+    if (!accountWindow) return;
+    event.preventDefault();
+    accountWindow.focus();
+    const closeWatcher = window.setInterval(() => {
+      if (!accountWindow.closed) return;
+      window.clearInterval(closeWatcher);
+      window.focus();
+    }, 500);
+  });
+}
 
 function isChannelProgrammed(id) {
   return ["daily", "loop"].includes(SCHEDULES[id]?.mode);
