@@ -77,7 +77,7 @@ const loopCache = new WeakMap();
 
 function expandedLoop(schedule) {
   if (loopCache.has(schedule)) return loopCache.get(schedule);
-  const margin = Number.isFinite(schedule.videoMargin) ? schedule.videoMargin : 5;
+  const margin = Number.isFinite(schedule.videoMargin) ? schedule.videoMargin : 7;
   const entries = [];
   let groupCounter = 0;
   const addVideo = (id, type, options = {}) => {
@@ -531,7 +531,7 @@ function render() {
     $("elapsed").textContent = formatDuration(itemElapsed);
     $("remaining").textContent = `−${formatDuration(itemDuration - itemElapsed)}`;
     $("progress-bar").style.width = `${Math.min(100, (itemElapsed / itemDuration) * 100)}%`;
-    renderPlayer(state.event.item, clipElapsed + 5, stateKey);
+    renderPlayer(state.event.item, clipElapsed, stateKey);
     renderComingUp(state);
   } else {
     const elapsed = state.position - state.event.start;
@@ -682,17 +682,19 @@ function setActiveChannel(id, updateHash = true) {
     $("guide-empty").hidden = false;
   }
 
-  if (updateHash || requestedId === "metv" || requestedId === "ccc") history.replaceState(null, "", `#${CHANNEL_HASHES[activeChannel] || activeChannel}`);
+  if (updateHash || requestedId === "metv" || requestedId === "ccc" || (!CHANNELS[requestedId] && !HASH_CHANNELS[requestedId])) {
+    history.replaceState(null, "", `#${CHANNEL_HASHES[activeChannel] || activeChannel}`);
+  }
 }
 
-function showTestPlayer() {
+function showEmotionTestChannel() {
   testMode = true;
-  activeChannel = "test";
+  activeChannel = "emotion";
   document.body.classList.add("test-player-mode");
-  document.documentElement.dataset.channel = "test";
-  document.documentElement.style.setProperty("--yellow", "#fec601");
-  document.title = "Prueba Live";
-  updateFavicon("#fec601", true);
+  document.documentElement.dataset.channel = "emotion";
+  document.documentElement.style.setProperty("--yellow", CHANNELS.emotion.color);
+  document.title = "Emotion Live";
+  updateFavicon(CHANNELS.emotion.color);
   clearTimeout(tuneGateTimer);
   tuneGateEndsAt = performance.now() + 5000;
   hasStartedBroadcast = false;
@@ -703,43 +705,43 @@ function showTestPlayer() {
   $("channel-bug").hidden = true;
   $("age-badge").hidden = true;
   $("coming-up").classList.remove("is-visible");
-  $("brand-logo").src = `assets/favicon.svg?v=20260923-25`;
-  $("brand-logo").alt = "Prueba";
-  $("status-kicker").textContent = "PRUEBA";
-  $("current-title").textContent = "Reproductor de prueba";
+  $("brand-logo").src = `${CHANNELS.emotion.logo}?v=${logoVersion}`;
+  $("brand-logo").alt = "Emotion";
+  $("status-kicker").textContent = "CANAL EN PRUEBAS";
+  $("current-title").textContent = "Emisión de prueba";
   $("program-meta").hidden = true;
   $("progress-track").hidden = true;
   $("time-row").hidden = true;
   document.querySelector(".next-card").hidden = true;
-  $("guide-title").textContent = "Prueba";
+  $("guide-title").textContent = "Emotion";
   $("program-guide-scroll").hidden = true;
   $("guide-empty").hidden = false;
-  $("guide-empty").textContent = "Prueba sin programación.";
-  $("footer-channel").textContent = "Prueba";
+  $("guide-empty").textContent = "Emotion es un canal en pruebas. Su programación llegará próximamente.";
+  $("footer-channel").textContent = CHANNELS.emotion.legalName;
   document.querySelectorAll(".channel-tab").forEach((tab) => {
-    const selected = tab.dataset.channel === "test";
+    const selected = tab.dataset.channel === "emotion";
     tab.classList.toggle("is-active", selected);
     tab.setAttribute("aria-selected", String(selected));
   });
-  renderPlayer({ id: "test-paranormal", ...CATALOG["trailer-paranormal-v01"], isAdvertising: true }, 0, `test-${Date.now()}`);
+  renderPlayer({ id: "emotion-test", ...CATALOG["trailer-paranormal-v01"], isAdvertising: true }, 0, `emotion-test-${Date.now()}`);
   clearTimeout(tuneGateTimer);
   awaitingDriveClick = false;
   $("tune-loader").hidden = true;
   $("sound-help").hidden = true;
   $("drive-note").hidden = true;
   document.querySelector(".player-lock").classList.add("is-open");
-  history.replaceState(null, "", "#test");
+  history.replaceState(null, "", "#emotion");
 }
 
 document.querySelectorAll(".channel-tab").forEach((tab) => {
-  tab.addEventListener("click", () => tab.dataset.channel === "test" ? showTestPlayer() : setActiveChannel(tab.dataset.channel));
+  tab.addEventListener("click", () => tab.dataset.channel === "emotion" ? showEmotionTestChannel() : setActiveChannel(tab.dataset.channel));
 });
 window.addEventListener("hashchange", () => {
-  if (location.hash.slice(1) === "test") showTestPlayer();
+  if (location.hash.slice(1) === "emotion") showEmotionTestChannel();
   else setActiveChannel(location.hash.slice(1), false);
 });
 
-if (location.hash.slice(1) === "test") showTestPlayer();
+if (location.hash.slice(1) === "emotion") showEmotionTestChannel();
 else setActiveChannel(location.hash.slice(1) || "cnt", false);
 window.CNT_APP_READY = true;
 showPlayerControls();

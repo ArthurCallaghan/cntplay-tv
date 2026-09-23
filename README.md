@@ -8,7 +8,7 @@ Los cuatro canales activos incluyen pausas publicitarias regulares de dos a cinc
 
 Antes de habilitar el reproductor, la web muestra una espera de cinco segundos. El primer acceso utiliza «Ver emisión» y los cambios de contenido posteriores «Seguir con la emisión».
 
-La pestaña **Prueba**, camuflada con el mismo color del fondo y situada antes de CNT, abre el reproductor de diagnóstico con el tráiler de *Paranormal: Volumen 1*. Conserva la estructura completa de un canal —panel lateral, parrilla vacía y pie—, pero deja el reproductor de Drive sin bloqueos ni recortes para facilitar las pruebas.
+**Emotion** funciona temporalmente como canal de pruebas. Abre el reproductor de diagnóstico con el tráiler de *Paranormal: Volumen 1*, conserva la estructura completa del canal y deja el reproductor de Drive sin bloqueos ni recortes para facilitar las comprobaciones.
 
 ## Publicar en GitHub Pages
 

@@ -5,13 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="CNT: emisión lineal con programación diaria." />
     <meta name="theme-color" content="#080b12" />
+    <meta name="cnt-build" content="20260923-29" />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>CNT</title>
-    <link rel="icon" href="assets/favicon.svg?v=20260923-25" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=20260923-25" />
+    <link rel="icon" href="assets/favicon.svg?v=20260923-29" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css?v=20260923-29" />
     <script>
+      const currentBuild = document.querySelector('meta[name="cnt-build"]').content;
+      fetch(`${location.pathname}?comprobar=${Date.now()}`, { cache: "no-store" })
+        .then(response => response.text())
+        .then(html => {
+          const latestBuild = html.match(/<meta name="cnt-build" content="([^"]+)"/)?.[1];
+          if (latestBuild && latestBuild !== currentBuild) {
+            const freshUrl = new URL(location.href);
+            freshUrl.searchParams.set("version", latestBuild);
+            location.replace(freshUrl);
+          }
+        })
+        .catch(() => {});
       window.CNT_APP_READY = false;
       window.CNT_LOAD_ERRORS = [];
       window.addEventListener("error", event => {
@@ -44,7 +57,6 @@
         <img id="brand-logo" class="brand-logo" src="assets/cnt-logo.png" alt="CNT" />
       </a>
       <nav class="channel-tabs" aria-label="Canales">
-        <button id="test-player-trigger" class="channel-tab template-tab" data-channel="test" aria-selected="false" aria-label="Abrir reproductor de prueba">Prueba</button>
         <button class="channel-tab is-active" style="--tab-color:#fec601" data-channel="cnt" aria-selected="true">CNT</button>
         <button class="channel-tab" style="--tab-color:#cf0000" data-channel="weazel" aria-selected="false">Weazel</button>
         <button class="channel-tab" style="--tab-color:#2475ba" data-channel="comedy" aria-selected="false">CCC</button>
@@ -133,13 +145,13 @@
     </footer>
 
     <noscript>Esta emisión necesita JavaScript para sincronizarse con la hora actual.</noscript>
-    <script src="data/catalog.js?v=20260923-25"></script>
-    <script src="programacion-general.js?v=20260923-25"></script>
-    <script src="data/schedules/weazel.js?v=20260923-25"></script>
-    <script src="data/schedules/comedy-tv.js?v=20260923-25"></script>
-    <script src="data/schedules/metv.js?v=20260923-25"></script>
-    <script src="data/schedules/the-canyon-channel.js?v=20260923-25"></script>
-    <script src="data/schedules/emotion.js?v=20260923-25"></script>
-    <script src="app.js?v=20260923-25"></script>
+    <script src="data/catalog.js?v=20260923-29"></script>
+    <script src="data/schedules/cnt.js?v=20260923-29"></script>
+    <script src="data/schedules/weazel.js?v=20260923-29"></script>
+    <script src="data/schedules/comedy-tv.js?v=20260923-29"></script>
+    <script src="data/schedules/metv.js?v=20260923-29"></script>
+    <script src="data/schedules/the-canyon-channel.js?v=20260923-29"></script>
+    <script src="data/schedules/emotion.js?v=20260923-29"></script>
+    <script src="app.js?v=20260923-29"></script>
   </body>
 </html>

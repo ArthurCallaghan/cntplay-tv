@@ -3,7 +3,7 @@ window.CHANNEL_SCHEDULES = window.CHANNEL_SCHEDULES || {};
   const adBreak = (items = [], duration = 120) => ({ type: "adBreak", duration, items });
   window.CHANNEL_SCHEDULES.metv = {
     mode: "loop",
-    videoMargin: 5,
+    videoMargin: 7,
     sequence: [
       "special-summer-sound-1",
       adBreak(["trailer-caos-s01", "trailer-tumba-faraon"], 240),

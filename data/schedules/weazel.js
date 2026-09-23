@@ -29,7 +29,7 @@ window.CHANNEL_SCHEDULES = window.CHANNEL_SCHEDULES || {};
   };
   window.CHANNEL_SCHEDULES.weazel = {
     mode: "loop",
-    videoMargin: 5,
+    videoMargin: 7,
     sequence: [...distribute(season1), adBreak(), ...distribute(season2), adBreak()]
   };
 })();
