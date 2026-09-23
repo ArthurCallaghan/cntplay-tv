@@ -123,6 +123,10 @@
   addExtra("trailer-paranormal-v01", "Tráiler · Paranormal: Volumen 1", "2:13", "1nHYGPjwemmQyR0DlUSd1m2XGDnl2j8_I", "trailer");
   addExtra("trailer-three-kind-s01", "Tráiler · Three of a Kind T1", "1:28", "1stdCPMzsqnSlfQdRA6URWR8rYQwPbP5e", "trailer");
   addExtra("trailer-three-kind-s02", "Tráiler · Three of a Kind T2", "1:13", "1LoHbg3wrwg62AEjGwXzhRVUedRZifklM", "trailer");
+  addExtra("trailer-tumba-faraon", "Tráiler · La Tumba del Faraón", "0:50", "17skylH2RIKkfTfMVIO0BTtxrum7qja7i", "trailer");
+  addExtra("trailer-tumba-faraon-2", "Tráiler · La Tumba del Faraón II", "1:27", "1nL2wGH2Wj6C-YpX8-mBq7yVQAjrBHD9-", "trailer");
+  addExtra("trailer-amatista-2", "Tráiler · Amatista 2", "1:00", "1JlPau4iDWQjc1H-q6BPBMD0y7_Igw7zb", "trailer");
+  addExtra("trailer-el-hotel", "Tráiler · El Hotel", "1:32", "17Lfj0mghQVBSKqFRnlnMYZ8daS3FJXN7", "trailer");
   addExtra("adelanto-mis-amigos-s01", "Adelanto · Mis Amigos T1", "2:48", "1Dg1SlDhbNO5wB36WqlF2DEI0UdqJ1Blh", "promo");
 
   // Contenido musical de Three of a Kind.

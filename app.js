@@ -12,6 +12,8 @@ const CHANNELS = {
 };
 const CATALOG = window.CONTENT_CATALOG;
 const SCHEDULES = window.CHANNEL_SCHEDULES;
+const CHANNEL_HASHES = { metv: "music" };
+const HASH_CHANNELS = { music: "metv", ccc: "comedy" };
 
 // Cambiar a "html5" cuando los archivos estén alojados en un servidor con streaming por rangos.
 const VIDEO_PROVIDER = "drive";
@@ -81,19 +83,21 @@ function expandedLoop(schedule) {
   const addVideo = (id, type, options = {}) => {
     const item = CATALOG[id];
     if (!item || !Number.isFinite(item.duration)) return 0;
+    const playoutDuration = item.duration + margin;
     entries.push({
       type,
-      duration: item.duration,
+      duration: playoutDuration,
       groupId: options.groupId,
       item: {
         id, ...item,
+        playoutDuration,
         ...(options.title ? { title: options.title } : {}),
         ...(options.programDuration ? { programDuration: options.programDuration, programOffset: options.programOffset || 0, groupLast: options.groupLast } : {}),
+        ...(options.blockDuration ? { blockDuration: options.blockDuration, blockOffset: options.blockOffset || 0 } : {}),
         isAdvertising: type === "filler"
       }
     });
-    if (margin > 0) entries.push({ type: "pause", duration: margin, groupId: options.groupId });
-    return item.duration + margin;
+    return playoutDuration;
   };
 
   (schedule.sequence || []).forEach((entry) => {
@@ -105,11 +109,17 @@ function expandedLoop(schedule) {
       const groupId = `ad-${groupCounter++}`;
       const target = Math.max(0, Number(entry.duration) || 120);
       let used = 0;
-      (entry.items || []).forEach((id) => {
+      const accepted = (entry.items || []).filter((id) => {
         const item = CATALOG[id];
-        if (item && used + item.duration + margin <= target) used += addVideo(id, "filler", { groupId });
+        if (!item || used + item.duration + margin > target) return false;
+        used += item.duration + margin;
+        return true;
       });
-      if (used < target) entries.push({ type: "pause", duration: target - used, groupId });
+      used = 0;
+      accepted.forEach((id) => {
+        used += addVideo(id, "filler", { groupId, blockDuration: target, blockOffset: used });
+      });
+      if (used < target) entries.push({ type: "pause", duration: target - used, groupId, adDuration: target, adOffset: used });
       return;
     }
     if (entry?.type === "group") {
@@ -153,6 +163,7 @@ function buildLoopEvents(day, schedule) {
         events.push({
           type: entry.type,
           groupId: entry.groupId,
+          ...(entry.adDuration ? { adDuration: entry.adDuration, adOffset: entry.adOffset || 0 } : {}),
           ...(entry.item ? { item: entry.item } : {}),
           start: cursor - dayStart,
           end: end - dayStart
@@ -460,7 +471,8 @@ function renderIntermission(state, key) {
         .join("");
       card.innerHTML = `<img src="${CHANNELS[activeChannel].logo}?v=${logoVersion}" alt="${CHANNELS[activeChannel].name}"><p>Continuidad</p>${alternatives ? `<div class="continuity-switch"><span>También en emisión</span>${alternatives}</div>` : ""}`;
     } else if (!isBlackout) {
-      card.innerHTML = `<strong class="countdown">VOLVEMOS EN <span id="break-countdown">${formatDuration(state.event.end - state.position)}</span></strong>`;
+      const returnWith = state.nextProgram?.item.title || `Nueva jornada de ${CHANNELS[activeChannel].name}`;
+      card.innerHTML = `<strong class="countdown">VOLVEMOS EN <span id="break-countdown">${formatDuration(state.event.end - state.position)}</span></strong><span class="break-next">A continuación: ${returnWith}</span>`;
     }
     stage.append(card);
   }
@@ -480,7 +492,7 @@ function renderIntermission(state, key) {
 function renderComingUp(state) {
   const overlay = $("coming-up");
   const screen = $("screen");
-  const remaining = state.event.end - state.position;
+  const remaining = state.event.item.duration - (state.position - state.event.start);
   const visible = state.event.type === "program" && (!state.event.groupId || state.event.item.groupLast) && remaining <= 20 && remaining > 12;
   overlay.classList.toggle("is-visible", visible);
   screen.classList.toggle("coming-up-visible", visible);
@@ -506,9 +518,9 @@ function render() {
 
   if (state.onAir) {
     const clipElapsed = state.position - state.event.start;
-    const itemElapsed = clipElapsed + (state.event.item.programOffset || 0);
-    const itemDuration = state.event.item.programDuration || state.event.item.duration;
     const isAdvertising = state.event.type === "filler";
+    const itemElapsed = clipElapsed + (isAdvertising ? state.event.item.blockOffset || 0 : state.event.item.programOffset || 0);
+    const itemDuration = isAdvertising ? state.event.item.blockDuration || state.event.item.playoutDuration : state.event.item.programDuration || state.event.item.playoutDuration;
     $("status-kicker").textContent = "EN EMISIÓN";
     $("current-title").textContent = isAdvertising ? "Publicidad" : state.event.item.title;
     $("program-meta").hidden = false;
@@ -519,17 +531,27 @@ function render() {
     $("elapsed").textContent = formatDuration(itemElapsed);
     $("remaining").textContent = `−${formatDuration(itemDuration - itemElapsed)}`;
     $("progress-bar").style.width = `${Math.min(100, (itemElapsed / itemDuration) * 100)}%`;
-    renderPlayer(state.event.item, clipElapsed, stateKey);
+    renderPlayer(state.event.item, clipElapsed + 5, stateKey);
     renderComingUp(state);
   } else {
     const elapsed = state.position - state.event.start;
     const duration = state.event.end - state.event.start;
-    $("status-kicker").textContent = state.event.type === "offair" ? CHANNELS[activeChannel].name.toUpperCase() : state.event.type === "continuity" ? `CONTINUIDAD ${CHANNELS[activeChannel].name.toUpperCase()}` : "PAUSA DE EMISIÓN";
-    $("current-title").textContent = state.event.type === "offair" ? `Volvemos a las ${clockFromSeconds(parseClock(SCHEDULES[activeChannel].dayStartsAt))}` : state.event.type === "continuity" ? CHANNELS[activeChannel].name : "Volvemos enseguida";
-    $("program-meta").hidden = true;
-    $("elapsed").textContent = formatDuration(elapsed);
-    $("remaining").textContent = `−${formatDuration(state.event.end - state.position)}`;
-    $("progress-bar").style.width = `${Math.min(100, (elapsed / duration) * 100)}%`;
+    const isAdRemainder = Boolean(state.event.adDuration);
+    $("status-kicker").textContent = isAdRemainder ? "EN EMISIÓN" : state.event.type === "offair" ? CHANNELS[activeChannel].name.toUpperCase() : state.event.type === "continuity" ? `CONTINUIDAD ${CHANNELS[activeChannel].name.toUpperCase()}` : "PAUSA DE EMISIÓN";
+    $("current-title").textContent = isAdRemainder ? "Publicidad" : state.event.type === "offair" ? `Volvemos a las ${clockFromSeconds(parseClock(SCHEDULES[activeChannel].dayStartsAt))}` : state.event.type === "continuity" ? CHANNELS[activeChannel].name : "Volvemos enseguida";
+    $("program-meta").hidden = !isAdRemainder;
+    if (isAdRemainder) {
+      const breakElapsed = state.event.adOffset + elapsed;
+      $("current-rating").textContent = "PUBLICIDAD";
+      $("current-duration").textContent = formatDuration(state.event.adDuration);
+      $("elapsed").textContent = formatDuration(breakElapsed);
+      $("remaining").textContent = `−${formatDuration(state.event.adDuration - breakElapsed)}`;
+      $("progress-bar").style.width = `${Math.min(100, (breakElapsed / state.event.adDuration) * 100)}%`;
+    } else {
+      $("elapsed").textContent = formatDuration(elapsed);
+      $("remaining").textContent = `−${formatDuration(state.event.end - state.position)}`;
+      $("progress-bar").style.width = `${Math.min(100, (elapsed / duration) * 100)}%`;
+    }
     renderIntermission(state, stateKey);
     $("coming-up").classList.remove("is-visible");
     $("screen").classList.remove("coming-up-visible");
@@ -585,6 +607,12 @@ function hidePlayerControlsSoon() {
   controlsTimer = setTimeout(() => $("screen").classList.remove("controls-visible"), 2000);
 }
 
+function updateFavicon(color, official = false) {
+  const foreground = official ? "#080b12" : "white";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="13" fill="${color}"/><rect x="13" y="17" width="38" height="29" rx="5" fill="none" stroke="${foreground}" stroke-width="5"/><path d="M23 51h18M25 10l7 7 7-7" fill="none" stroke="${foreground}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  document.querySelector('link[rel="icon"]').href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 $("screen").addEventListener("pointerenter", showPlayerControls);
 $("screen").addEventListener("pointermove", showPlayerControls);
 $("screen").addEventListener("pointerleave", hidePlayerControlsSoon);
@@ -592,6 +620,8 @@ $("screen").addEventListener("touchstart", showPlayerControls, { passive: true }
 $("screen").addEventListener("focusin", showPlayerControls);
 
 function setActiveChannel(id, updateHash = true) {
+  const requestedId = id;
+  id = HASH_CHANNELS[id] || id;
   testMode = false;
   document.body.classList.remove("test-player-mode");
   const channel = CHANNELS[id] || CHANNELS.cnt;
@@ -601,7 +631,8 @@ function setActiveChannel(id, updateHash = true) {
   hasStartedBroadcast = false;
   document.documentElement.dataset.channel = activeChannel;
   document.documentElement.style.setProperty("--yellow", channel.color);
-  document.title = channel.name;
+  document.title = `${channel.name} Live`;
+  updateFavicon(channel.color, activeChannel === "cnt");
   $("brand-logo").src = `${channel.logo}?v=${logoVersion}`;
   $("brand-logo").alt = channel.name;
   $("channel-bug").src = `${channel.logo}?v=${logoVersion}`;
@@ -651,7 +682,7 @@ function setActiveChannel(id, updateHash = true) {
     $("guide-empty").hidden = false;
   }
 
-  if (updateHash) history.replaceState(null, "", `#${activeChannel}`);
+  if (updateHash || requestedId === "metv" || requestedId === "ccc") history.replaceState(null, "", `#${CHANNEL_HASHES[activeChannel] || activeChannel}`);
 }
 
 function showTestPlayer() {
@@ -660,7 +691,8 @@ function showTestPlayer() {
   document.body.classList.add("test-player-mode");
   document.documentElement.dataset.channel = "test";
   document.documentElement.style.setProperty("--yellow", "#fec601");
-  document.title = "Plantilla";
+  document.title = "Prueba Live";
+  updateFavicon("#fec601", true);
   clearTimeout(tuneGateTimer);
   tuneGateEndsAt = performance.now() + 5000;
   hasStartedBroadcast = false;
@@ -671,19 +703,19 @@ function showTestPlayer() {
   $("channel-bug").hidden = true;
   $("age-badge").hidden = true;
   $("coming-up").classList.remove("is-visible");
-  $("brand-logo").src = `assets/favicon.svg?v=20260923-20`;
-  $("brand-logo").alt = "Plantilla";
-  $("status-kicker").textContent = "PLANTILLA";
+  $("brand-logo").src = `assets/favicon.svg?v=20260923-25`;
+  $("brand-logo").alt = "Prueba";
+  $("status-kicker").textContent = "PRUEBA";
   $("current-title").textContent = "Reproductor de prueba";
   $("program-meta").hidden = true;
   $("progress-track").hidden = true;
   $("time-row").hidden = true;
   document.querySelector(".next-card").hidden = true;
-  $("guide-title").textContent = "Plantilla";
+  $("guide-title").textContent = "Prueba";
   $("program-guide-scroll").hidden = true;
   $("guide-empty").hidden = false;
-  $("guide-empty").textContent = "Plantilla sin programación.";
-  $("footer-channel").textContent = "Plantilla";
+  $("guide-empty").textContent = "Prueba sin programación.";
+  $("footer-channel").textContent = "Prueba";
   document.querySelectorAll(".channel-tab").forEach((tab) => {
     const selected = tab.dataset.channel === "test";
     tab.classList.toggle("is-active", selected);

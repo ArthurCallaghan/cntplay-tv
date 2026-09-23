@@ -35,6 +35,7 @@ body {
 
 .brand { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
 .brand-logo { display: block; width: auto; height: 58px; max-width: 110px; object-fit: contain; }
+html[data-channel="cnt"] .brand-logo { height: 50px; max-width: 98px; }
 .brand-name { font-size: 1.45rem; font-weight: 850; letter-spacing: 0.1em; }
 .brand-channel { color: var(--muted); border-left: 1px solid var(--line); padding-left: 12px; font-size: 0.82rem; letter-spacing: 0.16em; }
 
@@ -43,8 +44,8 @@ body {
 .channel-tab::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 2px; background: var(--tab-color); }
 .channel-tab:hover, .channel-tab:focus-visible { color: var(--ink); }
 .channel-tab.is-active { color: var(--ink); border-bottom-color: var(--tab-color); }
-.template-tab { width: 14px; padding: 0; overflow: hidden; color: transparent !important; border-bottom-color: transparent !important; --tab-color: transparent; }
-.template-tab::before { margin: 0; background: transparent; }
+.template-tab { color: var(--bg) !important; border-bottom-color: var(--bg) !important; --tab-color: var(--bg); }
+.template-tab::before { background: var(--bg); }
 
 main { padding: 42px 0 52px; }
 .broadcast { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 28px; align-items: stretch; }
@@ -96,7 +97,7 @@ html[data-channel="metv"] .screen:-webkit-full-screen .channel-bug { width: clam
 .coming-up.is-visible { opacity: 1; visibility: visible; transform: translateY(0); transition-delay: 0s; }
 .coming-up span { display: block; margin-bottom: 5px; color: var(--yellow); font-size: .66rem; font-weight: 900; letter-spacing: .16em; }
 .coming-up strong { display: block; overflow: hidden; font-size: clamp(.9rem, 1.7vw, 1.25rem); line-height: 1.18; text-overflow: ellipsis; white-space: nowrap; }
-.screen:fullscreen .coming-up, .screen:-webkit-full-screen .coming-up { left: 3%; top: 11%; width: min(48%, 720px); padding: clamp(16px, 1.4vw, 25px); }
+.screen:fullscreen .coming-up, .screen:-webkit-full-screen .coming-up { left: 3%; top: 3%; width: min(48%, 720px); padding: clamp(16px, 1.4vw, 25px); }
 .screen.coming-up-visible:not(:fullscreen) .live-badge { opacity: 0 !important; pointer-events: none; }
 .fullscreen-button { position: absolute; z-index: 7; left: 18px; bottom: 18px; width: 40px; height: 36px; border: 1px solid rgba(255,255,255,.24); color: #fff; background: rgba(6,8,12,.9); font: 700 1.25rem/1 system-ui; cursor: pointer; }
 .fullscreen-button:hover, .fullscreen-button:focus-visible { color: var(--yellow); border-color: var(--yellow); }
@@ -106,6 +107,7 @@ html[data-channel="metv"] .screen:-webkit-full-screen .channel-bug { width: clam
 .off-air h1 span { color: var(--yellow); }
 .off-air > p { margin: 0 0 10px; color: var(--muted); font-size: .72rem; font-weight: 850; letter-spacing: .18em; }
 .off-air > .countdown { color: var(--ink); font-size: clamp(1.5rem, 4vw, 3.2rem); font-weight: 850; letter-spacing: -.04em; }
+.off-air .break-next { display: block; max-width: 560px; margin: 15px auto 0; color: var(--muted); font-size: clamp(.72rem, 1.35vw, .92rem); font-weight: 750; line-height: 1.35; }
 .off-air.blackout { background: #000; }
 .countdown { color: var(--muted); font-size: 1rem; font-variant-numeric: tabular-nums; }
 .signal-rings { display: flex; justify-content: center; align-items: end; gap: 5px; height: 36px; margin-bottom: 10px; }
@@ -199,6 +201,7 @@ noscript { display: block; padding: 18px; text-align: center; background: #5b171
   .topbar { min-height: 82px; align-items: stretch; }
   .brand-channel { display: none; }
   .brand-logo { width: auto; height: 46px; max-width: 90px; }
+  html[data-channel="cnt"] .brand-logo { height: 40px; max-width: 80px; }
   main { padding-top: 24px; }
   .channel-bug { right: 20px; bottom: 20px; width: 50px; }
   .age-badge { right: 20px; top: 20px; width: 24px; height: 24px; font-size: .58rem; }

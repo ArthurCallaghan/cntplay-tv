@@ -6,6 +6,10 @@ window.CHANNEL_SCHEDULES = window.CHANNEL_SCHEDULES || {};
     ["teaser-paranormal-prologo", "trailer-caos-s01"],
     ["trailer-paranormal-v01"],
     ["trailer-three-kind-s01", "trailer-three-kind-s02"],
+    [],
+    ["trailer-tumba-faraon", "trailer-amatista-2"],
+    ["trailer-tumba-faraon-2"],
+    ["trailer-el-hotel", "trailer-paranormal-v01"],
     []
   ];
   let breakIndex = 0;
