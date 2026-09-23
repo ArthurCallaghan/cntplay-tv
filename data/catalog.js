@@ -146,5 +146,36 @@
   addExtra("music-waka-waka", "Waka Waka", "2:14", "1eS9hIdGOe2JtropTvCcTVCSx-Dq8SLN-", "music");
   addExtra("music-you-belong-with-me", "You Belong With Me (Póker's Version)", "2:13", "1FJy9ZmKhkUi-lW3ifTVXM0P_3-V55wmJ", "music");
 
+  const shuffled = (values, seed = 1) => {
+    const result = [...values];
+    let state = seed >>> 0;
+    for (let index = result.length - 1; index > 0; index--) {
+      state = (state * 1664525 + 1013904223) >>> 0;
+      const target = state % (index + 1);
+      [result[index], result[target]] = [result[target], result[index]];
+    }
+    return result;
+  };
+  const makeTrailerBreaks = (seed = 1) => {
+    const pool = shuffled(Object.keys(catalog).filter((id) => catalog[id].category === "trailer"), seed);
+    let cursor = 0;
+    let breakNumber = 0;
+    return (duration = 180) => {
+      const wanted = 2 + ((seed + breakNumber++) % 2);
+      const items = [];
+      let used = 0;
+      for (let attempts = 0; attempts < pool.length * 3 && items.length < wanted; attempts++) {
+        const id = pool[cursor++ % pool.length];
+        const itemDuration = catalog[id].duration + 7;
+        if (!items.includes(id) && used + itemDuration <= duration) {
+          items.push(id);
+          used += itemDuration;
+        }
+      }
+      return { type: "adBreak", duration, items };
+    };
+  };
+
   window.CONTENT_CATALOG = catalog;
+  window.SCHEDULE_TOOLS = { shuffled, makeTrailerBreaks };
 })();

@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="CNT: emisión lineal con programación diaria." />
     <meta name="theme-color" content="#080b12" />
-    <meta name="cnt-build" content="20260923-29" />
+    <meta name="cnt-build" content="20260923-38" />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>CNT</title>
-    <link rel="icon" href="assets/favicon.svg?v=20260923-29" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=20260923-29" />
+    <link rel="icon" href="assets/favicon.svg?v=20260923-38" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css?v=20260923-38" />
     <script>
       const currentBuild = document.querySelector('meta[name="cnt-build"]').content;
       fetch(`${location.pathname}?comprobar=${Date.now()}`, { cache: "no-store" })
@@ -30,6 +30,7 @@
       window.addEventListener("error", event => {
         const source = event.target && (event.target.src || event.target.href);
         if (source) window.CNT_LOAD_ERRORS.push(source);
+        else if (event.message) window.CNT_LOAD_ERRORS.push(event.message);
       }, true);
       if ("serviceWorker" in navigator) navigator.serviceWorker.getRegistrations().then(registrations => registrations.forEach(registration => registration.unregister()));
       if ("caches" in window) caches.keys().then(names => names.forEach(name => caches.delete(name)));
@@ -47,7 +48,7 @@
         }
         document.body.innerHTML = '<main class="boot-error"><h1>CNT no ha podido cargar</h1><p>Chrome ha bloqueado uno o más archivos de la emisión.</p><p class="boot-error-detail"></p><button onclick="sessionStorage.clear();location.reload()">Reintentar</button></main>';
         const detail = document.querySelector(".boot-error-detail");
-        detail.textContent = window.CNT_LOAD_ERRORS.length ? `Archivo bloqueado: ${window.CNT_LOAD_ERRORS.at(-1).split("/").at(-1)}` : "Prueba a desactivar el bloqueador de contenido para tv.cntplay.es.";
+        detail.textContent = window.CNT_LOAD_ERRORS.length ? `Detalle: ${window.CNT_LOAD_ERRORS.at(-1).split("/").at(-1)}` : "Prueba a desactivar el bloqueador de contenido para tv.cntplay.es.";
       }, 2500));
     </script>
   </head>
@@ -105,7 +106,7 @@
           <p id="status-kicker" class="eyebrow">EN EMISIÓN</p>
           <h2 id="current-title">CNT</h2>
           <dl id="program-meta" class="program-meta">
-            <div><dt>CLASIFICACIÓN</dt><dd id="current-rating">—</dd></div>
+            <div id="rating-meta"><dt>CLASIFICACIÓN</dt><dd id="current-rating">—</dd></div>
             <div><dt>DURACIÓN</dt><dd id="current-duration">—</dd></div>
           </dl>
           <div id="progress-track" class="progress-track" aria-hidden="true"><span id="progress-bar"></span></div>
@@ -145,13 +146,13 @@
     </footer>
 
     <noscript>Esta emisión necesita JavaScript para sincronizarse con la hora actual.</noscript>
-    <script src="data/catalog.js?v=20260923-29"></script>
-    <script src="data/schedules/cnt.js?v=20260923-29"></script>
-    <script src="data/schedules/weazel.js?v=20260923-29"></script>
-    <script src="data/schedules/comedy-tv.js?v=20260923-29"></script>
-    <script src="data/schedules/metv.js?v=20260923-29"></script>
-    <script src="data/schedules/the-canyon-channel.js?v=20260923-29"></script>
-    <script src="data/schedules/emotion.js?v=20260923-29"></script>
-    <script src="app.js?v=20260923-29"></script>
+    <script src="data/catalog.js?v=20260923-38"></script>
+    <script src="data/schedules/cnt.js?v=20260923-38"></script>
+    <script src="data/schedules/weazel.js?v=20260923-38"></script>
+    <script src="data/schedules/comedy-tv.js?v=20260923-38"></script>
+    <script src="data/schedules/metv.js?v=20260923-38"></script>
+    <script src="data/schedules/the-canyon-channel.js?v=20260923-38"></script>
+    <script src="data/schedules/emotion.js?v=20260923-38"></script>
+    <script src="app.js?v=20260923-38"></script>
   </body>
 </html>

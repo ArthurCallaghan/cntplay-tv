@@ -35,8 +35,7 @@ let activeChannel = "cnt";
 let suppressChannelBug = false;
 let hasStartedBroadcast = false;
 let tuneGateTimer;
-let tuneGateEndsAt = performance.now() + 5000;
-let testMode = false;
+let tuneGateEndsAt = performance.now() + 2500;
 const logoVersion = Date.now();
 
 function isChannelProgrammed(id) {
@@ -162,7 +161,7 @@ function buildLoopEvents(day, schedule) {
       if (end > dayStart && cursor < dayEnd) {
         events.push({
           type: entry.type,
-          groupId: entry.groupId,
+          groupId: entry.groupId ? `${entry.groupId}-${cycleStart}` : undefined,
           ...(entry.adDuration ? { adDuration: entry.adDuration, adOffset: entry.adOffset || 0 } : {}),
           ...(entry.item ? { item: entry.item } : {}),
           start: cursor - dayStart,
@@ -290,6 +289,10 @@ function clockFromSeconds(seconds) {
 
 function renderAgeRating(rating) {
   const badge = $("age-badge");
+  if (!hasStartedBroadcast) {
+    badge.hidden = true;
+    return;
+  }
   if (!rating) {
     badge.hidden = true;
     return;
@@ -303,9 +306,25 @@ function renderAgeRating(rating) {
 
 function renderAdvertisingBadge() {
   const badge = $("age-badge");
+  if (!hasStartedBroadcast) {
+    badge.hidden = true;
+    return;
+  }
   badge.className = "age-badge advertising-badge";
   badge.textContent = "PUBLICIDAD";
   badge.setAttribute("aria-label", "Publicidad");
+  badge.hidden = false;
+}
+
+function renderTestingBadge() {
+  const badge = $("age-badge");
+  if (!hasStartedBroadcast) {
+    badge.hidden = true;
+    return;
+  }
+  badge.className = "age-badge advertising-badge testing-badge";
+  badge.textContent = "CANAL EN PRUEBAS";
+  badge.setAttribute("aria-label", "Canal en pruebas");
   badge.hidden = false;
 }
 
@@ -358,7 +377,9 @@ function renderProgramGuide(state) {
   const hourWidth = Math.max(190, viewport.clientWidth / 1.35);
   const nowSeconds = state.day * 86400 + state.position;
   const current = state.event;
-  const currentGuideStart = current.guideStart ?? current.start;
+  const currentGuideStart = current.guideStart ?? (current.item?.programDuration
+    ? current.start - (current.item.programOffset || 0)
+    : current.start);
   const key = `${state.day}-${currentGuideStart}-${current.type === "filler" ? "pause" : current.type}`;
   if (guideKey === key) {
     $("guide-now-line").style.left = `${((nowSeconds - guideWindowStart) / 3600) * hourWidth}px`;
@@ -472,7 +493,7 @@ function renderIntermission(state, key) {
       card.innerHTML = `<img src="${CHANNELS[activeChannel].logo}?v=${logoVersion}" alt="${CHANNELS[activeChannel].name}"><p>Continuidad</p>${alternatives ? `<div class="continuity-switch"><span>También en emisión</span>${alternatives}</div>` : ""}`;
     } else if (!isBlackout) {
       const returnWith = state.nextProgram?.item.title || `Nueva jornada de ${CHANNELS[activeChannel].name}`;
-      card.innerHTML = `<strong class="countdown">VOLVEMOS EN <span id="break-countdown">${formatDuration(state.event.end - state.position)}</span></strong><span class="break-next">A continuación: ${returnWith}</span>`;
+      card.innerHTML = `<strong class="countdown">VOLVEMOS EN <span id="break-countdown">${formatDuration(state.event.end - state.position)}</span></strong><span class="break-next">A CONTINUACIÓN: ${returnWith.toLocaleUpperCase("es-ES")}</span>`;
     }
     stage.append(card);
   }
@@ -493,7 +514,7 @@ function renderComingUp(state) {
   const overlay = $("coming-up");
   const screen = $("screen");
   const remaining = state.event.item.duration - (state.position - state.event.start);
-  const visible = state.event.type === "program" && (!state.event.groupId || state.event.item.groupLast) && remaining <= 20 && remaining > 12;
+  const visible = !SCHEDULES[activeChannel]?.testing && state.event.type === "program" && (!state.event.groupId || state.event.item.groupLast) && remaining <= 20 && remaining > 12;
   overlay.classList.toggle("is-visible", visible);
   screen.classList.toggle("coming-up-visible", visible);
   overlay.setAttribute("aria-hidden", String(!visible));
@@ -502,31 +523,39 @@ function renderComingUp(state) {
 }
 
 function render() {
-  if (testMode || !isChannelProgrammed(activeChannel)) return;
+  if (!isChannelProgrammed(activeChannel)) return;
   const now = new Date();
   const state = broadcastState(now);
   if (!state.event) return;
   const stateKey = `${state.day}-${state.event.start}-${state.event.type}`;
   const next = state.nextProgram;
+  const isTestingChannel = Boolean(SCHEDULES[activeChannel]?.testing);
   $("player-stage").hidden = false;
   $("live-badge").hidden = state.event.type === "offair";
-  $("live-label").textContent = state.event.type === "continuity" ? CHANNELS[activeChannel].name.toUpperCase() : "EN DIRECTO";
-  $("live-badge").classList.toggle("is-channel-label", state.event.type === "continuity");
+  $("live-label").textContent = isTestingChannel ? "REDIFUSIÓN" : state.event.type === "continuity" ? CHANNELS[activeChannel].name.toUpperCase() : "EN DIRECTO";
+  $("live-badge").classList.toggle("is-channel-label", isTestingChannel || state.event.type === "continuity");
   $("next-label").textContent = "A CONTINUACIÓN";
-  $("next-title").textContent = next?.item.title || `Nueva jornada de ${CHANNELS[activeChannel].name}`;
-  $("next-time").textContent = next ? clockFromSeconds(next.start) : clockFromSeconds(parseClock(SCHEDULES[activeChannel].dayStartsAt));
+  const testingLoop = SCHEDULES[activeChannel]?.testing && state.event.item?.programDuration;
+  $("next-title").textContent = next?.item.title || (testingLoop ? state.event.item.title : `Nueva jornada de ${CHANNELS[activeChannel].name}`);
+  $("next-time").textContent = next
+    ? clockFromSeconds(next.start)
+    : testingLoop
+      ? clockFromSeconds(state.event.start - (state.event.item.programOffset || 0) + state.event.item.programDuration)
+      : clockFromSeconds(parseClock(SCHEDULES[activeChannel].dayStartsAt));
 
   if (state.onAir) {
     const clipElapsed = state.position - state.event.start;
     const isAdvertising = state.event.type === "filler";
     const itemElapsed = clipElapsed + (isAdvertising ? state.event.item.blockOffset || 0 : state.event.item.programOffset || 0);
     const itemDuration = isAdvertising ? state.event.item.blockDuration || state.event.item.playoutDuration : state.event.item.programDuration || state.event.item.playoutDuration;
-    $("status-kicker").textContent = "EN EMISIÓN";
+    $("status-kicker").textContent = SCHEDULES[activeChannel]?.testing ? "CANAL EN PRUEBAS" : "EN EMISIÓN";
     $("current-title").textContent = isAdvertising ? "Publicidad" : state.event.item.title;
     $("program-meta").hidden = false;
+    $("rating-meta").hidden = isTestingChannel;
     $("current-rating").textContent = isAdvertising ? "PUBLICIDAD" : state.event.item.rating ? (String(state.event.item.rating).toUpperCase() === "TP" ? "TP" : `+${String(state.event.item.rating).replace("+", "")}`) : "SIN CLASIFICAR";
     $("current-duration").textContent = formatDuration(itemDuration);
-    if (isAdvertising) renderAdvertisingBadge();
+    if (SCHEDULES[activeChannel]?.testing) renderTestingBadge();
+    else if (isAdvertising) renderAdvertisingBadge();
     else renderAgeRating(state.event.item.rating);
     $("elapsed").textContent = formatDuration(itemElapsed);
     $("remaining").textContent = `−${formatDuration(itemDuration - itemElapsed)}`;
@@ -541,6 +570,7 @@ function render() {
     $("current-title").textContent = isAdRemainder ? "Publicidad" : state.event.type === "offair" ? `Volvemos a las ${clockFromSeconds(parseClock(SCHEDULES[activeChannel].dayStartsAt))}` : state.event.type === "continuity" ? CHANNELS[activeChannel].name : "Volvemos enseguida";
     $("program-meta").hidden = !isAdRemainder;
     if (isAdRemainder) {
+      $("rating-meta").hidden = false;
       const breakElapsed = state.event.adOffset + elapsed;
       $("current-rating").textContent = "PUBLICIDAD";
       $("current-duration").textContent = formatDuration(state.event.adDuration);
@@ -622,12 +652,10 @@ $("screen").addEventListener("focusin", showPlayerControls);
 function setActiveChannel(id, updateHash = true) {
   const requestedId = id;
   id = HASH_CHANNELS[id] || id;
-  testMode = false;
-  document.body.classList.remove("test-player-mode");
   const channel = CHANNELS[id] || CHANNELS.cnt;
   activeChannel = CHANNELS[id] ? id : "cnt";
   clearTimeout(tuneGateTimer);
-  tuneGateEndsAt = performance.now() + 5000;
+  tuneGateEndsAt = performance.now() + 2500;
   hasStartedBroadcast = false;
   document.documentElement.dataset.channel = activeChannel;
   document.documentElement.style.setProperty("--yellow", channel.color);
@@ -687,62 +715,14 @@ function setActiveChannel(id, updateHash = true) {
   }
 }
 
-function showEmotionTestChannel() {
-  testMode = true;
-  activeChannel = "emotion";
-  document.body.classList.add("test-player-mode");
-  document.documentElement.dataset.channel = "emotion";
-  document.documentElement.style.setProperty("--yellow", CHANNELS.emotion.color);
-  document.title = "Emotion Live";
-  updateFavicon(CHANNELS.emotion.color);
-  clearTimeout(tuneGateTimer);
-  tuneGateEndsAt = performance.now() + 5000;
-  hasStartedBroadcast = false;
-  loadedKey = "";
-  $("coming-soon").hidden = true;
-  $("player-stage").hidden = false;
-  $("live-badge").hidden = true;
-  $("channel-bug").hidden = true;
-  $("age-badge").hidden = true;
-  $("coming-up").classList.remove("is-visible");
-  $("brand-logo").src = `${CHANNELS.emotion.logo}?v=${logoVersion}`;
-  $("brand-logo").alt = "Emotion";
-  $("status-kicker").textContent = "CANAL EN PRUEBAS";
-  $("current-title").textContent = "Emisión de prueba";
-  $("program-meta").hidden = true;
-  $("progress-track").hidden = true;
-  $("time-row").hidden = true;
-  document.querySelector(".next-card").hidden = true;
-  $("guide-title").textContent = "Emotion";
-  $("program-guide-scroll").hidden = true;
-  $("guide-empty").hidden = false;
-  $("guide-empty").textContent = "Emotion es un canal en pruebas. Su programación llegará próximamente.";
-  $("footer-channel").textContent = CHANNELS.emotion.legalName;
-  document.querySelectorAll(".channel-tab").forEach((tab) => {
-    const selected = tab.dataset.channel === "emotion";
-    tab.classList.toggle("is-active", selected);
-    tab.setAttribute("aria-selected", String(selected));
-  });
-  renderPlayer({ id: "emotion-test", ...CATALOG["trailer-paranormal-v01"], isAdvertising: true }, 0, `emotion-test-${Date.now()}`);
-  clearTimeout(tuneGateTimer);
-  awaitingDriveClick = false;
-  $("tune-loader").hidden = true;
-  $("sound-help").hidden = true;
-  $("drive-note").hidden = true;
-  document.querySelector(".player-lock").classList.add("is-open");
-  history.replaceState(null, "", "#emotion");
-}
-
 document.querySelectorAll(".channel-tab").forEach((tab) => {
-  tab.addEventListener("click", () => tab.dataset.channel === "emotion" ? showEmotionTestChannel() : setActiveChannel(tab.dataset.channel));
+  tab.addEventListener("click", () => setActiveChannel(tab.dataset.channel));
 });
 window.addEventListener("hashchange", () => {
-  if (location.hash.slice(1) === "emotion") showEmotionTestChannel();
-  else setActiveChannel(location.hash.slice(1), false);
+  setActiveChannel(location.hash.slice(1), false);
 });
 
-if (location.hash.slice(1) === "emotion") showEmotionTestChannel();
-else setActiveChannel(location.hash.slice(1) || "cnt", false);
+setActiveChannel(location.hash.slice(1) || "cnt", false);
 window.CNT_APP_READY = true;
 showPlayerControls();
 setInterval(render, 1000);
