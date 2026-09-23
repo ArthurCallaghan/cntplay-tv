@@ -9,7 +9,7 @@ window.CHANNEL_SCHEDULES = window.CHANNEL_SCHEDULES || {};
 
   window.CHANNEL_SCHEDULES.emotion = {
     mode: "loop",
-    videoMargin: 7,
+    videoMargin: 10,
     testing: true,
     sequence: [{
       type: "group",

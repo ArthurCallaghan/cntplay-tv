@@ -11,5 +11,5 @@ window.CHANNEL_SCHEDULES = window.CHANNEL_SCHEDULES || {};
     });
     sequence.push(adBreak(180));
   });
-  window.CHANNEL_SCHEDULES.comedy = { mode: "loop", videoMargin: 7, sequence };
+  window.CHANNEL_SCHEDULES.comedy = { mode: "loop", videoMargin: 10, sequence };
 })();

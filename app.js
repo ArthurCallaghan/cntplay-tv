@@ -116,7 +116,7 @@ const loopCache = new WeakMap();
 
 function expandedLoop(schedule) {
   if (loopCache.has(schedule)) return loopCache.get(schedule);
-  const margin = Number.isFinite(schedule.videoMargin) ? schedule.videoMargin : 7;
+  const margin = Number.isFinite(schedule.videoMargin) ? schedule.videoMargin : 10;
   const entries = [];
   let groupCounter = 0;
   const addVideo = (id, type, options = {}) => {

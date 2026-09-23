@@ -10,5 +10,5 @@ window.CHANNEL_SCHEDULES = window.CHANNEL_SCHEDULES || {};
     "movie-poker-de-ases", "movie-el-hotel", "movie-problemas-en-casa",
     pause(180)
   ];
-  window.CHANNEL_SCHEDULES.canyon = { mode: "loop", videoMargin: 7, sequence };
+  window.CHANNEL_SCHEDULES.canyon = { mode: "loop", videoMargin: 10, sequence };
 })();

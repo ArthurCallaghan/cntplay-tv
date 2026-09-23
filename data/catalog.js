@@ -166,7 +166,7 @@
       let used = 0;
       for (let attempts = 0; attempts < pool.length * 3 && items.length < wanted; attempts++) {
         const id = pool[cursor++ % pool.length];
-        const itemDuration = catalog[id].duration + 7;
+        const itemDuration = catalog[id].duration + 10;
         if (!items.includes(id) && used + itemDuration <= duration) {
           items.push(id);
           used += itemDuration;

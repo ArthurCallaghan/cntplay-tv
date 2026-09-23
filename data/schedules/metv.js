@@ -23,7 +23,7 @@ window.CHANNEL_SCHEDULES = window.CHANNEL_SCHEDULES || {};
   });
   window.CHANNEL_SCHEDULES.metv = {
     mode: "loop",
-    videoMargin: 7,
+    videoMargin: 10,
     sequence
   };
 })();

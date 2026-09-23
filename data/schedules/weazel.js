@@ -27,7 +27,7 @@ window.CHANNEL_SCHEDULES = window.CHANNEL_SCHEDULES || {};
   };
   window.CHANNEL_SCHEDULES.weazel = {
     mode: "loop",
-    videoMargin: 7,
+    videoMargin: 10,
     sequence: [...distribute(season1), ...distribute(season2)]
   };
 })();
