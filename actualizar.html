@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <title>Actualizar CNT Live</title>
+    <style>
+      body { min-height: 100vh; margin: 0; display: grid; place-items: center; color: #fff; background: #080b12; font: 600 16px system-ui, sans-serif; text-align: center; }
+      main { width: min(90%, 430px); }
+      h1 { color: #fec601; }
+      button { padding: 13px 20px; border: 0; color: #080b12; background: #fec601; font: 800 15px system-ui, sans-serif; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Actualizando CNT Live…</h1>
+      <p id="status">Eliminando la versión antigua guardada en este navegador.</p>
+      <button id="retry" hidden>Volver a intentarlo</button>
+    </main>
+    <script>
+      async function repair() {
+        try {
+          if ("serviceWorker" in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map(registration => registration.unregister()));
+          }
+          if ("caches" in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(key => caches.delete(key)));
+          }
+          sessionStorage.clear();
+          location.replace(`./?version=20260927-70&actualizado=${Date.now()}#cnt`);
+        } catch (error) {
+          document.getElementById("status").textContent = "No se ha podido completar la actualización automática.";
+          document.getElementById("retry").hidden = false;
+        }
+      }
+      document.getElementById("retry").addEventListener("click", repair);
+      repair();
+    </script>
+  </body>
+</html>

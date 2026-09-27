@@ -17,6 +17,8 @@ Antes de habilitar cada vídeo, la web muestra una preparación de 2,5 segundos.
 5. En **Build and deployment**, elige **Deploy from a branch**, selecciona la rama y la carpeta raíz (`/`).
 6. Comprueba que **Custom domain** siga configurado como `tv.cntplay.es`.
 
+Si un navegador conserva una parrilla antigua, abre `https://tv.cntplay.es/actualizar.html`. Esa página elimina únicamente la caché y el controlador de CNT Live en ese navegador y vuelve a abrir la emisión actual.
+
 No necesita instalación ni proceso de compilación.
 
 ## Cambiar el proveedor de vídeo
