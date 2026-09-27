@@ -3,7 +3,7 @@
 // La parrilla y el proveedor de vídeo están aislados aquí para facilitar el cambio a MP4 o HLS.
 const TIME_ZONE = "Europe/Madrid";
 const CHANNELS = {
-  cnt: { name: "CNT", legalName: "CNT", color: "#fec601", logo: "assets/cnt-logo.png", type: "Próximamente..." },
+  cnt: { name: "CNT", legalName: "CNT", color: "#fec601", logo: "assets/cnt-logo.png", type: "Generalista" },
   weazel: { name: "Weazel", legalName: "Weazel", color: "#cf0000", logo: "assets/weazel-logo.png", type: "Segundo generalista" },
   comedy: { name: "CCC", legalName: "Conglomerated Comedy Channel", color: "#2475ba", logo: "assets/comedy-tv-logo.png", type: "Comedia" },
   metv: { name: "MeTV", legalName: "Music Entertainment TV", color: "#44cafe", logo: "assets/metv-logo.png", type: "Música" },
@@ -196,8 +196,12 @@ function buildLoopEvents(day, schedule) {
   let cycleStart = dayStart - phase;
   const events = [];
   while (cycleStart < dayEnd) {
+    // Las pausas tienen duración fija por bloque: la mezcla no altera el ciclo.
+    const cycleEntries = schedule.sequenceForCycle
+      ? expandedLoop({ ...schedule, sequence: schedule.sequenceForCycle(Math.floor(cycleStart / cycleDuration)) }).entries
+      : entries;
     let cursor = cycleStart;
-    entries.forEach((entry) => {
+    cycleEntries.forEach((entry) => {
       const end = cursor + entry.duration;
       if (end > dayStart && cursor < dayEnd) {
         events.push({
@@ -800,7 +804,11 @@ function setActiveChannel(id, updateHash = true) {
 
 document.querySelector(".brand").addEventListener("click", (event) => {
   event.preventDefault();
-  location.reload();
+  loadedKey = "";
+  hasStartedCurrentVideo = false;
+  $("age-badge").hidden = true;
+  render();
+  showPlayerControls();
 });
 
 document.querySelectorAll(".channel-tab").forEach((tab) => {
@@ -822,6 +830,7 @@ window.addEventListener("hashchange", () => {
 
 setActiveChannel(location.hash.slice(1) || "cnt", false);
 window.CNT_APP_READY = true;
+document.documentElement.classList.remove("app-booting");
 showPlayerControls();
 setInterval(render, 1000);
 setInterval(watchDriveActivation, 50);
