@@ -813,13 +813,18 @@ function setActiveChannel(id, updateHash = true) {
   }
 }
 
-document.querySelector(".brand").addEventListener("click", (event) => {
-  event.preventDefault();
+function reloadCurrentPlayer() {
+  $("video-help-panel").hidden = true;
   loadedKey = "";
   hasStartedCurrentVideo = false;
   $("age-badge").hidden = true;
   render();
   showPlayerControls();
+}
+
+document.querySelector(".brand").addEventListener("click", (event) => {
+  event.preventDefault();
+  reloadCurrentPlayer();
 });
 
 document.querySelectorAll(".channel-tab").forEach((tab) => {
@@ -834,7 +839,7 @@ $("video-help-close").addEventListener("click", () => {
   $("video-help-panel").hidden = true;
   updateVideoHelpVisibility();
 });
-$("video-help-reload").addEventListener("click", () => location.reload());
+$("video-help-reload").addEventListener("click", reloadCurrentPlayer);
 window.addEventListener("hashchange", () => {
   setActiveChannel(location.hash.slice(1), false);
 });
