@@ -12,14 +12,16 @@ Antes de habilitar cada vídeo, la web muestra una preparación de 2,5 segundos.
 
 1. Sube **el contenido completo de esta carpeta** a la raíz de la rama publicada. No subas únicamente algunos archivos ni la carpeta exterior del ZIP.
 2. Conserva exactamente las carpetas `assets/`, `data/` y `data/schedules/`.
-3. No elimines `CNAME`: mantiene asociado el dominio `tv.cntplay.es`. Si falta, GitHub mostrará «Site not found · 404».
+3. Conserva `CNAME`, que declara el dominio `tv.cntplay.es` para la publicación desde una rama. Un error «Site not found · 404» requiere revisar también el despliegue y la configuración de Pages.
 4. En el repositorio, abre **Settings → Pages**.
 5. En **Build and deployment**, elige **Deploy from a branch**, selecciona la rama y la carpeta raíz (`/`).
 6. Comprueba que **Custom domain** siga configurado como `tv.cntplay.es`.
 
-Si un navegador conserva una parrilla antigua, abre `https://tv.cntplay.es/actualizar.html`. Esa página elimina únicamente la caché y el controlador de CNT Live en ese navegador y vuelve a abrir la emisión actual.
+Para publicar el ZIP entregado no necesitas instalar ni compilar nada. Usa el `index.html` de `outputs/cnt-play-directo/` (incluido en el ZIP), no el HTML fuente de la raíz del proyecto.
 
-No necesita instalación ni proceso de compilación.
+El ZIP ya está preparado para publicar. En la versión publicada, la programación de CNT está integrada en `index.html` para evitar depender de una petición separada a `cnt.js`, que falla en el Chrome donde se reprodujo el problema. Su única fuente editable sigue siendo `data/schedules/cnt.js`.
+
+Si modificas los archivos fuente del proyecto, ejecuta `node work/package-site.cjs` para regenerar `outputs/cnt-play-directo/` antes de publicar. No edites a mano la copia integrada en el HTML. El generador conserva los logos existentes en el paquete. No se necesita Node para visitar la web ni para subir el ZIP ya generado.
 
 ## Cambiar el proveedor de vídeo
 

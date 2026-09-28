@@ -795,6 +795,17 @@ function setActiveChannel(id, updateHash = true) {
     document.querySelector(".next-card").hidden = true;
     $("program-guide-scroll").hidden = true;
     $("guide-empty").hidden = false;
+    if (SCHEDULES[activeChannel]?.mode !== "upcoming") {
+      // La ausencia de datos es un error de carga, no un canal sin estrenar.
+      $("coming-soon").querySelector(".eyebrow").textContent = "ERROR DE CARGA";
+      $("coming-soon").querySelector("p:last-child").textContent = "No se ha podido cargar la programación. Prueba a recargar la página.";
+      $("status-kicker").textContent = "PROGRAMACIÓN NO DISPONIBLE";
+      $("current-title").textContent = "No se ha podido cargar la parrilla";
+      $("guide-empty").textContent = "La programación no se ha cargado.";
+    } else {
+      $("coming-soon").querySelector(".eyebrow").textContent = "PRÓXIMAMENTE...";
+      $("coming-soon").querySelector("p:last-child").textContent = "Las emisiones empezarán próximamente.";
+    }
   }
 
   if (updateHash || requestedId === "metv" || requestedId === "ccc" || (!CHANNELS[requestedId] && !HASH_CHANNELS[requestedId])) {
