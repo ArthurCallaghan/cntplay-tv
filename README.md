@@ -1,42 +1,38 @@
-# CNT Live
+# Kind Studios
 
-Web estática multicanal lista para GitHub Pages. CNT, Weazel, CCC (Conglomerated Comedy Channel), MeTV, The Canyon Channel y Emotion funcionan como canales lineales continuos.
+La configuración está separada para que sea más fácil de mantener:
 
-CNT emite una mezcla variable de bloques de *Three of a Kind*, *Caos en Strawberry*, *Paranormal*, las películas de Fort Brimstone, *Amatista 2* y *Summer Sound 4*. La mezcla cambia en cada vuelta, mantiene el orden cronológico, evita juntar dos grupos de la misma serie y sitúa las dos películas de Fort Brimstone antes de *Caos en Strawberry* 1x10–1x12.
+- `users.json`: usuarios, perfiles y códigos de acceso.
+- `pdf-config.json`: horarios, botones de documentos, rutas de PDF y enlace de CNT Play.
+- `checklists`: los viernes que deben aparecer.
+- `checklistGroups`: alumnado, grupos y horarios de Checklist.
 
-Cada vídeo conserva diez segundos adicionales antes de pasar al siguiente. Las parrillas incluyen pausas publicitarias con tráileres; cuando no hay una pieza disponible, aparece la pantalla «Volvemos en» con su contador. Emotion permanece identificado como canal en pruebas.
+Para un usuario que use dos métodos, conserva `code` para tarjeta/NFC/código de barras y añade `credentialsCode` para la clave de acceso manual. Pau ya está configurado así con un único registro.
 
-Antes de habilitar cada vídeo, la web muestra una preparación de 2,5 segundos. El primer acceso utiliza «Ver emisión» y los cambios posteriores «Seguir con la emisión». Pulsar el logotipo superior reinicia únicamente el reproductor del canal actual.
+## Añadir PDFs
 
-## Publicar en GitHub Pages
+1. Copia el archivo a la carpeta `PDF/` (puedes usar subcarpetas).
+2. Escribe su ruta relativa en `pdf-config.json`, por ejemplo: `PDF/Horarios/11.09.2026.pdf`.
+3. Para la nueva versión **Letra** de The Final Countdown, deja el archivo en `PDF/Vice Group/The Final Countdown/the-final-countdown-letra.pdf`.
 
-1. Sube **el contenido completo de esta carpeta** a la raíz de la rama publicada. No subas únicamente algunos archivos ni la carpeta exterior del ZIP.
-2. Conserva exactamente las carpetas `assets/`, `data/` y `data/schedules/`.
-3. Conserva `CNAME`, que declara el dominio `tv.cntplay.es` para la publicación desde una rama. Un error «Site not found · 404» requiere revisar también el despliegue y la configuración de Pages.
-4. En el repositorio, abre **Settings → Pages**.
-5. En **Build and deployment**, elige **Deploy from a branch**, selecciona la rama y la carpeta raíz (`/`).
-6. Comprueba que **Custom domain** siga configurado como `tv.cntplay.es`.
+## Checklists
 
-Para publicar el ZIP entregado no necesitas instalar ni compilar nada. Usa el `index.html` de `outputs/cnt-play-directo/` (incluido en el ZIP), no el HTML fuente de la raíz del proyecto.
+Las marcas de Checklist se guardan localmente en cada dispositivo. No se envían a ningún servicio externo y no se comparten entre móviles.
 
-El ZIP ya está preparado para publicar. En la versión publicada, la programación de CNT está integrada en `index.html` para evitar depender de una petición separada a `cnt.js`, que falla en el Chrome donde se reprodujo el problema. Su única fuente editable sigue siendo `data/schedules/cnt.js`.
+Para fijar el resultado de un viernes pasado en todos los dispositivos, edita `checklist-status.json` y publica el cambio. Cada `checkedStudents` empieza vacío (nadie marcado). Por ejemplo, escribe `"checkedStudents": ["Alumno 1", "Alumno 2"]` para que esos dos alumnos aparezcan marcados en ese grupo y fecha. Los viernes pasados que estén en ese archivo pasan a ser de solo lectura en la app.
 
-Si modificas los archivos fuente del proyecto, ejecuta `node work/package-site.cjs` para regenerar `outputs/cnt-play-directo/` antes de publicar. No edites a mano la copia integrada en el HTML. El generador conserva los logos existentes en el paquete. No se necesita Node para visitar la web ni para subir el ZIP ya generado.
+## Calendario del estudio
 
-## Cambiar el proveedor de vídeo
+`studio-calendar.json` contiene los periodos lectivos, festivos y los viernes de horario reducido. El estado del dashboard se calcula a partir de ese archivo y la Checklist solo muestra los viernes lectivos. Para cambiar horas o fechas en el futuro, edita ese archivo y vuelve a publicarlo.
 
-La primera prueba usa el reproductor incrustado de Google Drive. En `app.js`, la constante `VIDEO_PROVIDER` puede cambiarse de `drive` a `html5`; después hay que añadir las URL públicas de cada vídeo en `html5Sources`, usando el ID de Drive como clave. El reproductor HTML5 oculta los controles y permite una sincronización más precisa.
+## Check In de Vice Group
 
-Los archivos de Drive deben tener acceso de lectura para cualquier persona con el enlace.
+Los perfiles `ViceKid` de `users.json` ven Vice Group y Check In. Este último solo se activa los viernes que tienen Vice Group configurado; cada asistencia se guarda localmente en el dispositivo de la alumna.
 
-## Sustituir logotipos
+## Probarla en móvil
 
-Los PNG de cada canal están en `assets/`. Se pueden reemplazar conservando exactamente estos nombres: `cnt-logo.png`, `weazel-logo.png`, `comedy-tv-logo.png`, `metv-logo.png`, `canyon-logo.png` y `emotion-logo.png`.
+Publica la carpeta con **HTTPS** (por ejemplo, GitHub Pages). La cámara, NFC y la PWA pueden no funcionar abriendo `index.html` directamente desde Archivos.
 
-## Editar contenidos y parrillas
-
-- `data/catalog.js` contiene la base común de episodios y películas: título, duración en segundos, enlace de Drive y clasificación por edad.
-- `data/schedules/` contiene un archivo de parrilla independiente para cada canal. La parrilla de CNT es `cnt.js`, siguiendo el mismo sistema de nombres que los demás canales.
-
-La clasificación puede ser `null`, `"TP"`, `"7"`, `"12"`, `"16"` o `"18"`. Cuando vale `null`, no aparece ningún distintivo en el reproductor.
-Las edades se escriben en el objeto `ratings`, situado al principio de `data/catalog.js`, usando el identificador del contenido.
+- Cámara: permite el acceso cuando lo pida el navegador.
+- NFC: es opcional y depende del navegador; suele funcionar en Chrome Android.
+- PDFs: se muestran dentro de la app.

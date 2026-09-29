@@ -1,853 +1,604 @@
-"use strict";
+(() => {
+  "use strict";
+  const cfg = window.APP_CONFIG;
+  const $ = (selector) => document.querySelector(selector);
+  const screens = document.querySelectorAll(".screen");
+  const date = new Date(); date.setHours(0, 0, 0, 0);
+  let selectedDate = new Date(date);
+  let selectedChecklistKey = null;
+  let archivedChecklistStatus = null;
+  let studioCalendar = null;
+  let users = [];
+  let usersReady = false;
+  let usersLoadPromise = null;
+  let currentUser = null;
+  let scanner = null;
+  let nfcController = null;
+  // Trasera en móvil para QR; webcam habitual en ordenador. Se puede cambiar manualmente.
+  const isMobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  const defaultScannerCamera = () => isMobileDevice ? "environment" : "user";
+  let activeCamera = defaultScannerCamera();
+  let currentPdfTask = null;
+  let currentPdf = null;
+  let pdfZoom = 1;
+  let pinchStartDistance = 0;
+  let pinchStartZoom = 1;
+  let pinchPreviewZoom = 1;
 
-// La parrilla y el proveedor de vídeo están aislados aquí para facilitar el cambio a MP4 o HLS.
-const TIME_ZONE = "Europe/Madrid";
-const CHANNELS = {
-  cnt: { name: "CNT", legalName: "CNT", color: "#fec601", logo: "assets/cnt-logo.png", type: "Generalista" },
-  weazel: { name: "Weazel", legalName: "Weazel", color: "#cf0000", logo: "assets/weazel-logo.png", type: "Segundo generalista" },
-  comedy: { name: "CCC", legalName: "Conglomerated Comedy Channel", color: "#2475ba", logo: "assets/comedy-tv-logo.png", type: "Comedia" },
-  metv: { name: "MeTV", legalName: "Music Entertainment TV", color: "#44cafe", logo: "assets/metv-logo.png", type: "Música" },
-  canyon: { name: "The Canyon Channel", legalName: "The Canyon Channel", color: "#843600", logo: "assets/canyon-logo.png", type: "Cine y películas" },
-  emotion: { name: "Emotion", legalName: "Emotion", color: "#af087c", logo: "assets/emotion-logo.png", type: "Entretenimiento" }
-};
-const CATALOG = window.CONTENT_CATALOG;
-const SCHEDULES = window.CHANNEL_SCHEDULES;
-const CHANNEL_HASHES = { metv: "music" };
-const HASH_CHANNELS = { music: "metv", ccc: "comedy" };
-
-// Cambiar a "html5" cuando los archivos estén alojados en un servidor con streaming por rangos.
-const VIDEO_PROVIDER = "drive";
-const html5Sources = {};
-
-const $ = (id) => document.getElementById(id);
-const timeFormatter = new Intl.DateTimeFormat("es-ES", {
-  timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
-});
-const dateFormatter = new Intl.DateTimeFormat("en-CA", {
-  timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit"
-});
-let loadedKey = "";
-let awaitingDriveClick = false;
-let guideKey = "";
-let guideWindowStart = 0;
-let controlsTimer;
-let activeChannel = "cnt";
-let suppressChannelBug = false;
-let hasStartedBroadcast = false;
-let hasStartedCurrentVideo = false;
-let tuneGateTimer;
-let videoHelpTimer;
-let videoHelpReady = false;
-let tuneGateEndsAt = performance.now() + 2500;
-const logoVersion = Date.now();
-
-function updateVideoHelpVisibility() {
-  const link = $("video-help-link");
-  const panel = $("video-help-panel");
-  if (!link || !panel) return;
-  link.hidden = !videoHelpReady || hasStartedCurrentVideo || !isChannelProgrammed(activeChannel) || !panel.hidden;
-  if (hasStartedCurrentVideo) panel.hidden = true;
-}
-
-const googleAccountLink = $("google-account-link");
-function openGoogleAccountWindow(event) {
-  if (!googleAccountLink) return;
-    const width = 520;
-    const height = 700;
-    const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
-    const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
-    const accountWindow = window.open(
-      googleAccountLink.href,
-      "cnt-google-account",
-      `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
-    );
-    if (!accountWindow) return;
-    event?.preventDefault();
-    accountWindow.focus();
-    const closeWatcher = window.setInterval(() => {
-      if (!accountWindow.closed) return;
-      window.clearInterval(closeWatcher);
-      window.focus();
-    }, 500);
-}
-if (googleAccountLink) googleAccountLink.addEventListener("click", openGoogleAccountWindow);
-
-function isChannelProgrammed(id) {
-  return ["daily", "loop"].includes(SCHEDULES[id]?.mode);
-}
-
-function showActivationControl() {
-  const loader = $("tune-loader");
-  const button = $("sound-help");
-  const remaining = Math.max(0, tuneGateEndsAt - performance.now());
-  clearTimeout(tuneGateTimer);
-  if (remaining > 0) {
-    loader.hidden = false;
-    loader.style.setProperty("--tune-wait", `${remaining}ms`);
-    button.hidden = true;
-    tuneGateTimer = setTimeout(showActivationControl, remaining);
-    return;
-  }
-  loader.hidden = true;
-  button.textContent = hasStartedBroadcast ? "Seguir con la emisión" : "Ver emisión";
-  button.hidden = false;
-  clearTimeout(videoHelpTimer);
-  videoHelpReady = false;
-  updateVideoHelpVisibility();
-  videoHelpTimer = setTimeout(() => {
-    videoHelpReady = true;
-    updateVideoHelpVisibility();
-  }, 2000);
-}
-
-function madridParts(date = new Date()) {
-  const parts = Object.fromEntries(timeFormatter.formatToParts(date).map(p => [p.type, p.value]));
-  const dateParts = Object.fromEntries(dateFormatter.formatToParts(date).map(p => [p.type, p.value]));
-  return {
-    seconds: Number(parts.hour) * 3600 + Number(parts.minute) * 60 + Number(parts.second),
-    day: Math.floor(Date.UTC(Number(dateParts.year), Number(dateParts.month) - 1, Number(dateParts.day)) / 86400000)
-  };
-}
-
-function parseClock(value) {
-  return value.split(":").reduce((total, part) => total * 60 + Number(part), 0);
-}
-
-const loopCache = new WeakMap();
-
-function expandedLoop(schedule) {
-  if (loopCache.has(schedule)) return loopCache.get(schedule);
-  const margin = Number.isFinite(schedule.videoMargin) ? schedule.videoMargin : 10;
-  const entries = [];
-  let groupCounter = 0;
-  const addVideo = (id, type, options = {}) => {
-    const item = CATALOG[id];
-    if (!item || !Number.isFinite(item.duration)) return 0;
-    const playoutDuration = item.duration + margin;
-    entries.push({
-      type,
-      duration: playoutDuration,
-      groupId: options.groupId,
-      item: {
-        id, ...item,
-        playoutDuration,
-        ...(options.title ? { title: options.title } : {}),
-        ...(options.programDuration ? { programDuration: options.programDuration, programOffset: options.programOffset || 0, groupLast: options.groupLast } : {}),
-        ...(options.blockDuration ? { blockDuration: options.blockDuration, blockOffset: options.blockOffset || 0 } : {}),
-        isAdvertising: type === "filler"
-      }
-    });
-    return playoutDuration;
-  };
-
-  (schedule.sequence || []).forEach((entry) => {
-    if (typeof entry === "string") {
-      addVideo(entry, "program");
-      return;
-    }
-    if (entry?.type === "adBreak") {
-      const groupId = `ad-${groupCounter++}`;
-      const target = Math.max(0, Number(entry.duration) || 120);
-      let used = 0;
-      const accepted = (entry.items || []).filter((id) => {
-        const item = CATALOG[id];
-        if (!item || used + item.duration + margin > target) return false;
-        used += item.duration + margin;
-        return true;
-      });
-      used = 0;
-      accepted.forEach((id) => {
-        used += addVideo(id, "filler", { groupId, blockDuration: target, blockOffset: used });
-      });
-      if (used < target) entries.push({ type: "pause", duration: target - used, groupId, adDuration: target, adOffset: used });
-      return;
-    }
-    if (entry?.type === "group") {
-      const ids = (entry.items || []).filter((id) => CATALOG[id] && Number.isFinite(CATALOG[id].duration));
-      const groupId = `program-${groupCounter++}`;
-      const programDuration = ids.reduce((total, id) => total + CATALOG[id].duration + margin, 0);
-      let programOffset = 0;
-      ids.forEach((id, index) => {
-        programOffset += addVideo(id, "program", {
-          groupId,
-          title: entry.title,
-          programDuration,
-          programOffset,
-          groupLast: index === ids.length - 1
-        });
-      });
-      return;
-    }
-    if (entry?.type === "pause" && entry.duration > 0) entries.push({ type: "pause", duration: entry.duration });
-  });
-
-  const cycleDuration = entries.reduce((total, entry) => total + entry.duration, 0);
-  const result = { entries, cycleDuration };
-  loopCache.set(schedule, result);
-  return result;
-}
-
-function buildLoopEvents(day, schedule) {
-  const { entries, cycleDuration } = expandedLoop(schedule);
-  if (!cycleDuration) return [];
-  const dayStart = day * 86400;
-  const dayEnd = dayStart + 86400;
-  const phase = ((dayStart % cycleDuration) + cycleDuration) % cycleDuration;
-  let cycleStart = dayStart - phase;
-  const events = [];
-  while (cycleStart < dayEnd) {
-    // Las pausas tienen duración fija por bloque: la mezcla no altera el ciclo.
-    const cycleEntries = schedule.sequenceForCycle
-      ? expandedLoop({ ...schedule, sequence: schedule.sequenceForCycle(Math.floor(cycleStart / cycleDuration)) }).entries
-      : entries;
-    let cursor = cycleStart;
-    cycleEntries.forEach((entry) => {
-      const end = cursor + entry.duration;
-      if (end > dayStart && cursor < dayEnd) {
-        events.push({
-          type: entry.type,
-          groupId: entry.groupId ? `${entry.groupId}-${cycleStart}` : undefined,
-          ...(entry.adDuration ? { adDuration: entry.adDuration, adOffset: entry.adOffset || 0 } : {}),
-          ...(entry.item ? { item: entry.item } : {}),
-          ...(entry.groupId ? { guideStart: cursor - dayStart - (entry.item?.blockOffset ?? entry.item?.programOffset ?? entry.adOffset ?? 0) } : {}),
-          start: cursor - dayStart,
-          end: end - dayStart
-        });
-      }
-      cursor = end;
-    });
-    cycleStart += cycleDuration;
-  }
-  return events;
-}
-
-function buildDayEvents(day, channelId = activeChannel) {
-  const schedule = SCHEDULES[channelId];
-  if (schedule?.mode === "loop") return buildLoopEvents(day, schedule);
-  if (!schedule || schedule.mode !== "daily") return [];
-  const rotationDay = day - (schedule.rotationAnchorDay || 0);
-  const rotations = schedule.rotations || [];
-  const rotation = rotations.length ? rotations[((rotationDay % rotations.length) + rotations.length) % rotations.length] : null;
-  const rotatingBlocks = (schedule.rotatingBlocks || []).map((block) => {
-    const index = ((rotationDay % block.variants.length) + block.variants.length) % block.variants.length;
-    return { start: block.start, label: block.label, items: block.variants[index] };
-  });
-  const blocks = [...schedule.blocks, ...rotatingBlocks, ...(rotation ? [rotation] : [])].sort((a, b) => parseClock(a.start) - parseClock(b.start));
-  const programs = [];
-  blocks.forEach((block) => {
-    let cursor = parseClock(block.start);
-    block.items.forEach((id) => {
-      const item = CATALOG[id];
-      if (!item || !Number.isFinite(item.duration)) return;
-      programs.push({ type: "program", item: { id, ...item }, start: cursor, end: cursor + item.duration, block: block.label });
-      cursor += item.duration;
-    });
-  });
-
-  const events = [];
-  const usedFillers = new Set();
-  const fillers = schedule.fillers || [];
-  let fillerCursor = fillers.length ? ((day % fillers.length) + fillers.length) % fillers.length : 0;
-
-  const fillGap = (start, end) => {
-    if (schedule.gapMode === "continuity") {
-      if (start < end) events.push({ type: "continuity", start, end });
-      return;
-    }
-    let cursor = start;
-    while (cursor < end) {
-      const remaining = end - cursor;
-      let selectedIndex = -1;
-      for (let step = 0; step < fillers.length; step++) {
-        const index = (fillerCursor + step) % fillers.length;
-        const id = fillers[index];
-        const item = CATALOG[id];
-        if (!usedFillers.has(id) && item && item.duration <= remaining) {
-          selectedIndex = index;
-          break;
-        }
-      }
-      if (selectedIndex < 0) break;
-      const id = fillers[selectedIndex];
-      const item = CATALOG[id];
-      events.push({ type: "filler", item: { id, ...item }, start: cursor, end: cursor + item.duration, guideStart: start, guideEnd: end });
-      usedFillers.add(id);
-      fillerCursor = (selectedIndex + 1) % fillers.length;
-      cursor += item.duration;
-    }
-    if (cursor < end) events.push({ type: "pause", start: cursor, end, guideStart: start, guideEnd: end });
-  };
-
-  const dayStart = parseClock(schedule.dayStartsAt);
-  if (programs[0] && programs[0].start > dayStart) fillGap(dayStart, programs[0].start);
-  programs.forEach((program, index) => {
-    events.push(program);
-    const next = programs[index + 1];
-    if (next && next.start > program.end) fillGap(program.end, next.start);
-  });
-  const last = programs.at(-1);
-  const nextDayStart = 86400 + parseClock(schedule.dayStartsAt);
-  const offAirBoundary = parseClock(schedule.offAirStartsAt || schedule.dayStartsAt) || 86400;
-  if (last) {
-    if (last.end < offAirBoundary) fillGap(last.end, offAirBoundary);
-    const offAirStart = Math.max(last.end, offAirBoundary);
-    if (offAirStart < nextDayStart) events.push({ type: "offair", start: offAirStart, end: nextDayStart });
-  }
-  return events.sort((a, b) => a.start - b.start);
-}
-
-function broadcastState(now = new Date()) {
-  const schedule = SCHEDULES[activeChannel];
-  const broadcastDayStart = schedule.mode === "loop" ? 0 : parseClock(schedule.dayStartsAt);
-  const madrid = madridParts(now);
-  const day = madrid.seconds < broadcastDayStart ? madrid.day - 1 : madrid.day;
-  const position = madrid.seconds < broadcastDayStart ? madrid.seconds + 86400 : madrid.seconds;
-  const events = buildDayEvents(day);
-  const index = events.findIndex((event) => position >= event.start && position < event.end);
-  const event = events[Math.max(0, index)];
-  let nextProgram;
-  if (schedule.mode === "loop" && event) {
-    const currentAbsoluteEnd = day * 86400 + event.end;
-    nextProgram = [day, day + 1].flatMap((candidateDay) =>
-      buildDayEvents(candidateDay).map((candidate) => ({
-        ...candidate,
-        absoluteStart: candidateDay * 86400 + candidate.start
-      }))
-    ).find((candidate) => candidate.type === "program" && candidate.absoluteStart >= currentAbsoluteEnd && (!event.groupId || candidate.groupId !== event.groupId));
-  } else {
-    nextProgram = events.slice(Math.max(0, index) + 1).find(candidate => candidate.type === "program") || buildDayEvents(day + 1).find(candidate => candidate.type === "program");
-  }
-  return { onAir: event?.type === "program" || event?.type === "filler", event, index, events, day, position, nextProgram };
-}
-
-function formatDuration(seconds) {
-  const safe = Math.max(0, Math.floor(seconds));
-  const hours = Math.floor(safe / 3600);
-  const minutes = Math.floor((safe % 3600) / 60);
-  const secs = safe % 60;
-  return hours ? `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}` : `${minutes}:${String(secs).padStart(2, "0")}`;
-}
-
-function clockFromSeconds(seconds) {
-  const normalized = ((seconds % 86400) + 86400) % 86400;
-  return `${String(Math.floor(normalized / 3600)).padStart(2, "0")}:${String(Math.floor((normalized % 3600) / 60)).padStart(2, "0")}`;
-}
-
-function renderAgeRating(rating) {
-  const badge = $("age-badge");
-  if (!hasStartedBroadcast) {
-    badge.hidden = true;
-    return;
-  }
-  if (!rating) {
-    badge.hidden = true;
-    return;
-  }
-  const normalized = String(rating).toUpperCase().replace("+", "");
-  badge.className = `age-badge rating-${normalized.toLowerCase()}`;
-  badge.textContent = normalized === "TP" ? "TP" : `+${normalized}`;
-  badge.setAttribute("aria-label", normalized === "TP" ? "Apto para todos los públicos" : `No recomendado para menores de ${normalized} años`);
-  badge.hidden = false;
-}
-
-function renderAdvertisingBadge() {
-  const badge = $("age-badge");
-  if (!hasStartedBroadcast) {
-    badge.hidden = true;
-    return;
-  }
-  badge.className = "age-badge advertising-badge";
-  badge.textContent = "PUBLICIDAD";
-  badge.setAttribute("aria-label", "Publicidad");
-  badge.hidden = false;
-}
-
-function renderTestingBadge() {
-  const badge = $("age-badge");
-  if (!hasStartedBroadcast) {
-    badge.hidden = true;
-    return;
-  }
-  badge.className = "age-badge advertising-badge testing-badge";
-  badge.textContent = "CANAL EN PRUEBAS";
-  badge.setAttribute("aria-label", "Canal en pruebas");
-  badge.hidden = false;
-}
-
-function renderPlayer(item, offset, key) {
-  if (loadedKey === key) return;
-  loadedKey = key;
-  hasStartedCurrentVideo = false;
-  $("video-help-panel").hidden = true;
-  clearTimeout(tuneGateTimer);
-  clearTimeout(videoHelpTimer);
-  tuneGateEndsAt = performance.now() + 2500;
-  videoHelpReady = false;
-  updateVideoHelpVisibility();
-  const loadingBar = $("tune-loader-bar");
-  loadingBar.style.animation = "none";
-  void loadingBar.offsetWidth;
-  loadingBar.style.animation = "";
-  suppressChannelBug = item.isAdvertising === true;
-  const stage = $("player-stage");
-  stage.replaceChildren();
-  $("channel-bug").hidden = true;
-  awaitingDriveClick = false;
-  document.querySelector(".player-lock").classList.remove("is-open");
-  $("sound-help").classList.remove("is-retry", "is-pass-through");
-  $("tune-loader").hidden = true;
-
-  if (VIDEO_PROVIDER === "html5" && html5Sources[item.driveId]) {
-    const video = document.createElement("video");
-    video.src = html5Sources[item.driveId];
-    video.autoplay = true;
-    video.playsInline = true;
-    video.controls = false;
-    video.setAttribute("controlsList", "nodownload noplaybackrate");
-    video.addEventListener("loadedmetadata", () => { video.currentTime = offset; video.play().catch(showActivationControl); }, { once: true });
-    video.addEventListener("playing", () => { hasStartedBroadcast = true; hasStartedCurrentVideo = true; updateVideoHelpVisibility(); $("channel-bug").hidden = suppressChannelBug; });
-    stage.append(video);
-    $("drive-note").hidden = true;
-  } else {
-    const iframe = document.createElement("iframe");
-    const start = Math.max(0, Math.floor(offset));
-    // Drive deja el visor negro en dominios publicados cuando recibe autoplay=1.
-    // Drive usa `t` en sus enlaces temporales; `start` hacía que algunos visores
-    // aceptasen la URL pero comenzasen igualmente desde el principio.
-    iframe.src = `https://drive.google.com/file/d/${item.driveId}/preview?t=${start}`;
-    iframe.title = `En directo: ${item.title}`;
-    iframe.allow = "autoplay; fullscreen; encrypted-media; picture-in-picture";
-    iframe.allowFullscreen = true;
-    iframe.loading = "eager";
-    iframe.tabIndex = 0;
-    stage.append(iframe);
-    $("drive-note").hidden = false;
-    document.querySelector(".player-lock").classList.add("is-open");
-    $("sound-help").classList.add("is-pass-through");
-    showActivationControl();
-    awaitingDriveClick = true;
-  }
-}
-
-function renderProgramGuide(state) {
-  const viewport = $("program-guide-scroll");
-  const hourWidth = Math.max(190, viewport.clientWidth / 1.35);
-  const nowSeconds = state.day * 86400 + state.position;
-  const current = state.event;
-  const currentGuideStart = current.guideStart ?? (current.item?.programDuration
-    ? current.start - (current.item.programOffset || 0)
-    : current.start);
-  const key = `${state.day}-${currentGuideStart}-${current.type === "filler" ? "pause" : current.type}`;
-  if (guideKey === key) {
-    $("guide-now-line").style.left = `${((nowSeconds - guideWindowStart) / 3600) * hourWidth}px`;
-    return;
-  }
-  guideKey = key;
-  guideWindowStart = state.day * 86400 + currentGuideStart;
-  const nominalEnd = guideWindowStart + 86400;
-  const allEvents = [state.day - 1, state.day, state.day + 1, state.day + 2].flatMap((day) =>
-    buildDayEvents(day, activeChannel).map((event) => ({ ...event, absoluteStart: day * 86400 + event.start, absoluteEnd: day * 86400 + event.end }))
-  );
-  const uniqueEvents = [...new Map(allEvents.map((event) => [
-    `${event.absoluteStart}-${event.absoluteEnd}-${event.type}-${event.item?.id || ""}`,
-    event
-  ])).values()].sort((a, b) => a.absoluteStart - b.absoluteStart);
-  const guideEvents = uniqueEvents.reduce((result, event) => {
-    const normalized = event.type === "filler" ? { ...event, type: "pause" } : event;
-    const previous = result.at(-1);
-    if (previous && normalized.groupId && previous.groupId === normalized.groupId && previous.absoluteEnd === normalized.absoluteStart) {
-      previous.absoluteEnd = normalized.absoluteEnd;
-      if (normalized.type === "program") previous.type = "program";
-      return result;
-    }
-    if (previous && previous.type === "pause" && normalized.type === "pause" && previous.absoluteEnd === normalized.absoluteStart) {
-      previous.absoluteEnd = normalized.absoluteEnd;
-    } else {
-      result.push({ ...normalized });
-    }
+  // No usar toISOString(): cerca de medianoche puede restar un día por usar UTC.
+  const formatKey = (value) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+  const scheduleStart = cfg.scheduleRange?.start || "2026-09-04";
+  const scheduleEnd = cfg.scheduleRange?.end || "2027-06-18";
+  const dateFromKey = (key) => new Date(`${key}T12:00:00`);
+  const buildFridayKeys = (start, end) => {
+    const result = [], cursor = dateFromKey(start), last = dateFromKey(end);
+    while (cursor.getDay() !== 5) cursor.setDate(cursor.getDate() + 1);
+    while (cursor <= last) { result.push(formatKey(cursor)); cursor.setDate(cursor.getDate() + 7); }
     return result;
-  }, []);
-  const instances = guideEvents.filter(event => event.absoluteEnd > guideWindowStart && event.absoluteStart < nominalEnd);
-  const lastVisible = instances.at(-1);
-  const extendedEnd = Math.max(nominalEnd, lastVisible?.absoluteEnd || nominalEnd);
+  };
+  let checklistKeys = buildFridayKeys(cfg.checklistRange?.start || scheduleStart, cfg.checklistRange?.end || scheduleEnd);
+  if (formatKey(selectedDate) < scheduleStart) selectedDate = dateFromKey(scheduleStart);
+  if (formatKey(selectedDate) > scheduleEnd) selectedDate = dateFromKey(scheduleEnd);
+  selectedChecklistKey = checklistKeys.find((key) => key >= formatKey(date)) || checklistKeys.at(-1) || null;
+  const getReferenceChecklistKey = (now = new Date()) => checklistKeys.find((key) => key >= formatKey(now)) || checklistKeys.at(-1) || null;
+  const updateChecklistTodayLabel = (now = new Date()) => {
+    const referenceKey = getReferenceChecklistKey(now);
+    $("#checklist-today-button").textContent = referenceKey === formatKey(now) ? "Hoy" : "Próximo viernes";
+  };
+  const isPlaceholder = (url) => !url || /REEMPLAZA/i.test(url);
+  // Codifica cada carpeta/archivo sin convertir las barras: así nombres con `?`, espacios o paréntesis funcionan bien.
+  const pdfUrl = (path) => path.split("/").map((segment) => encodeURIComponent(segment)).join("/");
+  const setStatus = (element, message, type = "") => { element.textContent = message; element.className = `status ${type}`; };
+  const showScreen = (id) => { screens.forEach((screen) => screen.classList.toggle("active", screen.id === `${id}-screen`)); window.scrollTo(0, 0); };
+  const findUser = (code, method = "barcode") => users.find((user) => {
+    const accessCode = method === "credentials" ? (user.credentialsCode || user.code) : user.code;
+    return String(accessCode).trim().toLowerCase() === String(code).trim().toLowerCase();
+  });
 
-  const timelineWidth = ((extendedEnd - guideWindowStart) / 3600) * hourWidth;
-  $("guide-now-line").style.left = `${((nowSeconds - guideWindowStart) / 3600) * hourWidth}px`;
-  const track = $("program-guide-track");
-  const scale = $("hour-scale");
-  const timeline = $("guide-timeline");
-  const fragment = document.createDocumentFragment();
-  const hourFragment = document.createDocumentFragment();
-  timeline.style.width = `${timelineWidth}px`;
-  timeline.style.setProperty("--hour-width", `${hourWidth}px`);
-
-  const currentMark = document.createElement("span");
-  currentMark.className = "hour-mark is-now";
-  currentMark.style.left = "0px";
-  currentMark.textContent = clockFromSeconds(guideWindowStart);
-  hourFragment.append(currentMark);
-
-  const firstFullHour = (Math.floor(guideWindowStart / 3600) + 1) * 3600;
-  for (let hourTime = firstFullHour; hourTime < extendedEnd; hourTime += 3600) {
-    const markLeft = ((hourTime - guideWindowStart) / 3600) * hourWidth;
-    if (markLeft < 82) continue;
-    const mark = document.createElement("span");
-    mark.className = "hour-mark";
-    mark.style.left = `${markLeft}px`;
-    mark.textContent = `${Math.floor((hourTime % 86400) / 3600)}:00`;
-    hourFragment.append(mark);
-  }
-
-  instances.forEach((event) => {
-      const programStart = event.absoluteStart;
-      const programEnd = event.absoluteEnd;
-      const visibleDuration = programEnd - programStart;
-      const row = document.createElement("article");
-      const time = document.createElement("time");
-      const title = document.createElement("strong");
-      const isCurrent = nowSeconds >= programStart && nowSeconds < programEnd;
-      row.className = `guide-item${isCurrent ? " is-current" : ""}${event.type === "pause" || event.type === "offair" ? " is-pause" : ""}${event.type === "continuity" ? " is-continuity" : ""}`;
-      row.setAttribute("role", "listitem");
-      const isEmptyPause = event.type === "pause" || event.type === "offair";
-      const itemTitle = event.type === "program" ? event.item.title : event.type === "continuity" ? `Continuidad ${CHANNELS[activeChannel].name}` : "";
-      row.title = isEmptyPause ? (event.type === "offair" ? "Fuera de emisión" : "Pausa de emisión") : `${clockFromSeconds(programStart)} · ${itemTitle}`;
-      if (isEmptyPause) row.setAttribute("aria-label", event.type === "offair" ? "Fuera de emisión" : "Pausa de emisión");
-      row.style.left = `${((programStart - guideWindowStart) / 3600) * hourWidth}px`;
-      row.style.width = `${Math.max(2, (visibleDuration / 3600) * hourWidth - 2)}px`;
-      if (!isEmptyPause) {
-        time.textContent = clockFromSeconds(programStart);
-        title.textContent = itemTitle;
-        row.append(time, title);
+  async function loadUsers() {
+    if (usersLoadPromise) return usersLoadPromise;
+    usersLoadPromise = (async () => {
+      try {
+        const response = await fetch("users.json?v=20260917-1", { cache: "no-store" });
+        if (!response.ok) throw new Error("No disponible");
+        const data = await response.json();
+        users = Array.isArray(data.users) ? data.users : [];
+      } catch (_) {
+        users = [];
+      } finally {
+        usersReady = true;
       }
-      fragment.append(row);
-  });
-  scale.replaceChildren(hourFragment);
-  track.replaceChildren(fragment);
-  requestAnimationFrame(() => {
-    viewport.scrollTo({ left: 0, behavior: "smooth" });
-  });
-}
-
-function renderIntermission(state, key) {
-  clearTimeout(videoHelpTimer);
-  videoHelpReady = false;
-  $("video-help-panel").hidden = true;
-  updateVideoHelpVisibility();
-  clearTimeout(tuneGateTimer);
-  const duration = state.event.end - state.event.start;
-  const isBlackout = state.event.type === "pause" && duration <= 5;
-  if (loadedKey !== key) {
-    loadedKey = key;
-    awaitingDriveClick = false;
-    const isOffAir = state.event.type === "offair";
-    const isContinuity = state.event.type === "continuity";
-    const stage = $("player-stage");
-    stage.replaceChildren();
-    const card = document.createElement("div");
-    card.className = `off-air${isContinuity ? " continuity" : ""}${isBlackout ? " blackout" : ""}`;
-    card.setAttribute("aria-label", isBlackout ? "Separador entre vídeos" : isOffAir ? "Fin de emisión" : isContinuity ? `Continuidad ${CHANNELS[activeChannel].name}` : "Pausa de emisión");
-    if (isContinuity) {
-      const alternatives = Object.entries(CHANNELS)
-        .filter(([id]) => id !== activeChannel && isChannelProgrammed(id))
-        .map(([id, channel]) => `<button type="button" data-watch-channel="${id}" style="--switch-color:${channel.color}">Ver ${channel.name}</button>`)
-        .join("");
-      card.innerHTML = `<img src="${CHANNELS[activeChannel].logo}?v=${logoVersion}" alt="${CHANNELS[activeChannel].name}"><p>Continuidad</p>${alternatives ? `<div class="continuity-switch"><span>También en emisión</span>${alternatives}</div>` : ""}`;
-    } else if (!isBlackout) {
-      const returnWith = state.nextProgram?.item.title || `Nueva jornada de ${CHANNELS[activeChannel].name}`;
-      card.innerHTML = `<p class="pause-heading">${CHANNELS[activeChannel].legalName.toLocaleUpperCase("es-ES")}</p><strong class="countdown">VOLVEMOS EN <span id="break-countdown">${formatDuration(state.event.end - state.position)}</span></strong><span class="break-next">A CONTINUACIÓN: ${returnWith.toLocaleUpperCase("es-ES")}</span>`;
-    }
-    stage.append(card);
+    })();
+    return usersLoadPromise;
   }
-  const remaining = state.event.end - state.position;
-  const countdown = $("break-countdown");
-  if (countdown) countdown.textContent = state.event.type === "offair"
-    ? `${clockFromSeconds(parseClock(SCHEDULES[activeChannel].dayStartsAt))} · faltan ${formatDuration(remaining)}`
-    : formatDuration(remaining);
-  $("channel-bug").hidden = true;
-  if (state.event.type === "pause" && !isBlackout) renderAdvertisingBadge();
-  else $("age-badge").hidden = true;
-  $("sound-help").hidden = true;
-  $("tune-loader").hidden = true;
-  document.querySelector(".player-lock").classList.toggle("is-open", state.event.type === "continuity");
-}
 
-function renderComingUp(state) {
-  const overlay = $("coming-up");
-  const screen = $("screen");
-  const remaining = state.event.item.duration - (state.position - state.event.start);
-  const visible = !SCHEDULES[activeChannel]?.testing && state.event.type === "program" && (!state.event.groupId || state.event.item.groupLast) && remaining <= 20 && remaining > 12;
-  overlay.classList.toggle("is-visible", visible);
-  screen.classList.toggle("coming-up-visible", visible);
-  overlay.setAttribute("aria-hidden", String(!visible));
-  if (!visible) return;
-  $("coming-up-title").textContent = state.nextProgram?.item.title || `Nueva jornada de ${CHANNELS[activeChannel].name}`;
-}
+  async function loadPdfConfig() {
+    try {
+      const response = await fetch("pdf-config.json?v=20260929-1", { cache: "no-store" });
+      if (!response.ok) throw new Error("No disponible");
+      const data = await response.json();
+      cfg.schedules = data.schedules || {};
+      cfg.collections = data.collections || {};
+      cfg.externalLinks = data.externalLinks || {};
+      if ($("#schedule-screen").classList.contains("active")) renderSchedule();
+      if ($("#collection-screen").classList.contains("active")) showCollection($("#collection-screen").dataset.collectionKey || "");
+    } catch (_) {
+      // Sin conexión se muestran los estados vacíos, sin bloquear la app.
+      cfg.schedules ||= {};
+      cfg.collections ||= {};
+      cfg.externalLinks ||= {};
+    }
+  }
 
-function render() {
-  if (!isChannelProgrammed(activeChannel)) return;
-  const now = new Date();
-  const state = broadcastState(now);
-  if (!state.event) return;
-  const stateKey = `${state.day}-${state.event.start}-${state.event.type}`;
-  const next = state.nextProgram;
-  const isTestingChannel = Boolean(SCHEDULES[activeChannel]?.testing);
-  $("player-stage").hidden = false;
-  $("live-badge").hidden = state.event.type === "offair";
-  $("live-label").textContent = isTestingChannel ? "REDIFUSIÓN" : state.event.type === "continuity" ? CHANNELS[activeChannel].name.toUpperCase() : "EN DIRECTO";
-  $("live-badge").classList.toggle("is-channel-label", isTestingChannel || state.event.type === "continuity");
-  $("next-label").textContent = "A CONTINUACIÓN";
-  const testingLoop = SCHEDULES[activeChannel]?.testing && state.event.item?.programDuration;
-  $("next-title").textContent = next?.item.title || (testingLoop ? state.event.item.title : `Nueva jornada de ${CHANNELS[activeChannel].name}`);
-  $("next-time").textContent = next
-    ? clockFromSeconds(next.start)
-    : testingLoop
-      ? clockFromSeconds(state.event.start - (state.event.item.programOffset || 0) + state.event.item.programDuration)
-      : clockFromSeconds(parseClock(SCHEDULES[activeChannel].dayStartsAt));
+  const isTeachingDate = (key, calendar = studioCalendar) => {
+    if (!calendar) return true;
+    const inPeriod = (calendar.teachingPeriods || []).some((period) => key >= period.start && key <= period.end);
+    return inPeriod && !(calendar.closedDates || []).includes(key);
+  };
 
-  if (state.onAir) {
-    const clipElapsed = state.position - state.event.start;
-    const isAdvertising = state.event.type === "filler";
-    const itemElapsed = clipElapsed + (isAdvertising ? state.event.item.blockOffset || 0 : state.event.item.programOffset || 0);
-    const itemDuration = isAdvertising ? state.event.item.blockDuration || state.event.item.playoutDuration : state.event.item.programDuration || state.event.item.playoutDuration;
-    $("status-kicker").textContent = SCHEDULES[activeChannel]?.testing ? "CANAL EN PRUEBAS" : "EN EMISIÓN";
-    $("current-title").textContent = isAdvertising ? "Publicidad" : state.event.item.title;
-    $("program-meta").hidden = false;
-    $("rating-meta").hidden = isTestingChannel;
-    $("current-rating").textContent = isAdvertising ? "PUBLICIDAD" : state.event.item.rating ? (String(state.event.item.rating).toUpperCase() === "TP" ? "TP" : `+${String(state.event.item.rating).replace("+", "")}`) : "SIN CLASIFICAR";
-    $("current-duration").textContent = formatDuration(itemDuration);
-    if (SCHEDULES[activeChannel]?.testing) renderTestingBadge();
-    else if (isAdvertising) renderAdvertisingBadge();
-    else renderAgeRating(state.event.item.rating);
-    $("elapsed").textContent = formatDuration(itemElapsed);
-    $("remaining").textContent = `−${formatDuration(itemDuration - itemElapsed)}`;
-    $("progress-bar").style.width = `${Math.min(100, (itemElapsed / itemDuration) * 100)}%`;
-    renderPlayer(state.event.item, clipElapsed, stateKey);
-    renderComingUp(state);
-  } else {
-    const elapsed = state.position - state.event.start;
-    const duration = state.event.end - state.event.start;
-    const isAdRemainder = Boolean(state.event.adDuration);
-    $("status-kicker").textContent = isAdRemainder ? "EN EMISIÓN" : state.event.type === "offair" ? CHANNELS[activeChannel].name.toUpperCase() : state.event.type === "continuity" ? `CONTINUIDAD ${CHANNELS[activeChannel].name.toUpperCase()}` : "PAUSA DE EMISIÓN";
-    $("current-title").textContent = isAdRemainder ? "Publicidad" : state.event.type === "offair" ? `Volvemos a las ${clockFromSeconds(parseClock(SCHEDULES[activeChannel].dayStartsAt))}` : state.event.type === "continuity" ? CHANNELS[activeChannel].name : "Volvemos enseguida";
-    $("program-meta").hidden = !isAdRemainder;
-    if (isAdRemainder) {
-      $("rating-meta").hidden = false;
-      const breakElapsed = state.event.adOffset + elapsed;
-      $("current-rating").textContent = "PUBLICIDAD";
-      $("current-duration").textContent = formatDuration(state.event.adDuration);
-      $("elapsed").textContent = formatDuration(breakElapsed);
-      $("remaining").textContent = `−${formatDuration(state.event.adDuration - breakElapsed)}`;
-      $("progress-bar").style.width = `${Math.min(100, (breakElapsed / state.event.adDuration) * 100)}%`;
+  function updateChecklistKeys() {
+    checklistKeys = buildFridayKeys(cfg.checklistRange?.start || scheduleStart, cfg.checklistRange?.end || scheduleEnd).filter((key) => isTeachingDate(key));
+    if (!checklistKeys.includes(selectedChecklistKey)) selectedChecklistKey = getReferenceChecklistKey();
+  }
+
+  async function loadStudioCalendar() {
+    try {
+      const response = await fetch("studio-calendar.json?v=20260915-1", { cache: "no-store" });
+      if (!response.ok) return;
+      studioCalendar = await response.json();
+      updateChecklistKeys();
+      updateStudioStatus();
+      if ($("#checklist-screen").classList.contains("active")) renderChecklist();
+    } catch (_) {
+      // Sin conexión, se mantiene el rango básico de la aplicación.
+    }
+  }
+
+  const minutesFromTime = (value) => { const [hour, minute] = value.split(":").map(Number); return hour * 60 + minute; };
+
+  function nextStudioOpening(now, calendar) {
+    const candidate = new Date(now); candidate.setHours(0, 0, 0, 0);
+    for (let offset = 0; offset <= 380; offset += 1) {
+      if (offset) candidate.setDate(candidate.getDate() + 1);
+      const key = formatKey(candidate);
+      if (candidate.getDay() !== 5 || !isTeachingDate(key, calendar)) continue;
+      const reduced = (calendar.reducedDates || []).includes(key);
+      // La próxima apertura es el inicio real de actividad, no el tramo previo de preparación.
+      const opening = reduced ? calendar.reducedHours.start : calendar.regularHours.openStart;
+      if (offset || now.getHours() * 60 + now.getMinutes() < minutesFromTime(opening)) return { key, opening };
+    }
+    return null;
+  }
+
+  function updateStudioStatus(now = new Date()) {
+    const status = $("#studio-status");
+    if (!status) return;
+    const key = formatKey(now), calendar = studioCalendar;
+    let state = "closed", message = "Estudio cerrado", detail = "";
+    if (calendar && now.getDay() === 5 && isTeachingDate(key, calendar)) {
+      const minute = now.getHours() * 60 + now.getMinutes();
+      if ((calendar.reducedDates || []).includes(key)) {
+        const reduced = calendar.reducedHours;
+        if (minute >= minutesFromTime(reduced.start) && minute < minutesFromTime(reduced.end)) { state = "reduced"; message = "Horario reducido"; detail = `${reduced.start} – ${reduced.end}`; }
+      } else {
+        const hours = calendar.regularHours;
+        if (minute >= minutesFromTime(hours.openStart) && minute < minutesFromTime(hours.openEnd)) { state = "open"; message = "Estudio abierto"; detail = `Horario actual · ${hours.openStart} – ${hours.openEnd}`; }
+        else if (minute >= minutesFromTime(hours.preOpenStart) && minute < minutesFromTime(hours.openStart)) { state = "soon"; message = "A punto de abrir"; detail = `Abre a las ${hours.openStart}`; }
+        else if (minute >= minutesFromTime(hours.openEnd) && minute < minutesFromTime(hours.closeEnd)) { state = "soon"; message = "A punto de cerrar"; detail = `Cierra a las ${hours.closeEnd}`; }
+      }
+    }
+    if (state === "closed" && calendar) {
+      const next = nextStudioOpening(now, calendar);
+      if (next) {
+        const daysUntil = Math.round((dateFromKey(next.key) - dateFromKey(formatKey(now))) / 86_400_000);
+        const when = daysUntil === 0 ? "Hoy" : daysUntil === 1 ? "Mañana" : daysUntil <= 14 ? "Este viernes" : formatDateLabel(dateFromKey(next.key));
+        detail = `Próxima apertura: ${when} a las ${next.opening}`;
+      }
+    }
+    status.dataset.state = state;
+    status.innerHTML = `<span class="studio-light" aria-hidden="true"></span><span><strong>${message}</strong>${detail ? `<small>${detail}</small>` : ""}</span>`;
+  }
+
+  async function loadArchivedChecklistStatus() {
+    try {
+      const response = await fetch("checklist-status.json?v=20260929-1", { cache: "no-store" });
+      if (!response.ok) return;
+      archivedChecklistStatus = await response.json();
+      if ($("#checklist-screen").classList.contains("active")) renderChecklist();
+    } catch (_) {
+      // Sin conexión se conservan las marcas locales del dispositivo.
+    }
+  }
+
+  function updateClock() {
+    const now = new Date();
+    const day = new Intl.DateTimeFormat("es-ES", {
+      weekday: "long", day: "numeric", month: "long", year: "numeric"
+    }).format(now);
+    const time = new Intl.DateTimeFormat("es-ES", { hour: "2-digit", minute: "2-digit" }).format(now);
+    const titledDay = `${day.charAt(0).toUpperCase()}${day.slice(1)}`;
+    $("#current-date-time").textContent = `${titledDay} · ${time}`;
+    updateGreeting(now);
+    updateChecklistTodayLabel(now);
+    updateStudioStatus(now);
+  }
+
+  function updateGreeting(now = new Date()) {
+    if (!currentUser) return;
+    const hour = now.getHours();
+    const greeting = hour >= 6 && hour < 12 ? "Buenos días" : hour >= 12 && hour < 20 ? "Buenas tardes" : "Buenas noches";
+    $("#greeting").textContent = currentUser.profile === "Guest" ? `¡${greeting}!` : `¡${greeting}, ${currentUser.name}!`;
+  }
+
+  function login(user) {
+    if (!user) return false;
+    currentUser = user;
+    const expires = Date.now() + cfg.sessionMinutes * 60 * 1000;
+    sessionStorage.setItem("controlAccessSession", JSON.stringify({ user, expires }));
+    updateGreeting();
+    updateDashboard(user.profile || "Admin");
+    $("#manual-dialog").close();
+    $("#scanner-dialog").close();
+    if ($("#nfc-dialog").open) $("#nfc-dialog").close();
+    stopScanner();
+    stopNfc();
+    showScreen("dashboard");
+    return true;
+  }
+
+  function updateDashboard(profile) {
+    document.querySelectorAll("#dashboard-screen [data-profiles]").forEach((card) => {
+      const allowed = card.dataset.profiles.split(" ").includes(profile);
+      card.hidden = !allowed;
+      card.classList.toggle("cnt-card", (card.dataset.wideProfiles || "").split(" ").includes(profile));
+      card.style.order = profile === "Member" ? (card.dataset.orderMember || "0") : "0";
+    });
+  }
+
+  async function validate(code, statusElement, username = null, method = "credentials") {
+    if (!usersReady) {
+      setStatus(statusElement, "Cargando usuarios…", "");
+      await loadUsers();
+    }
+    const normalizedCode = String(code || "").trim();
+    const normalizedUsername = username === null ? null : String(username).trim();
+    if (method === "credentials" && !normalizedCode) {
+      if (!normalizedUsername) {
+        setStatus(statusElement, "Introduce tu usuario o código interno.", "error");
+        return;
+      }
+      const internalCodeUser = findUser(normalizedUsername, "barcode");
+      if (internalCodeUser && login(internalCodeUser)) { setStatus(statusElement, "Acceso concedido.", "success"); return; }
+      setStatus(statusElement, "Código interno no reconocido.", "error");
+      return;
+    }
+    const user = findUser(code, method);
+    if (method === "credentials" && user?.username && !normalizedUsername) {
+      setStatus(statusElement, "Introduce tu usuario.", "error");
+      return;
+    }
+    const usernameMatches = username === null || (user && String(user.username || "").trim().toLowerCase() === String(normalizedUsername).toLowerCase());
+    if (user && usernameMatches && login(user)) { setStatus(statusElement, "Acceso concedido.", "success"); return; }
+    const messages = {
+      barcode: "Código QR no reconocido.",
+      nfc: "Tarjeta no reconocida.",
+      credentials: "Usuario o clave de acceso incorrectos."
+    };
+    setStatus(statusElement, messages[method] || "Acceso incorrecto.", "error");
+  }
+
+  function formatDateLabel(value) {
+    const dateParts = new Intl.DateTimeFormat("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).formatToParts(value);
+    const part = (type) => dateParts.find((item) => item.type === type)?.value || "";
+    const weekday = `${part("weekday").charAt(0).toUpperCase()}${part("weekday").slice(1)}`;
+    const month = `${part("month").charAt(0).toUpperCase()}${part("month").slice(1)}`;
+    return `${weekday}, ${part("day")} de ${month} de ${part("year")}`;
+  }
+
+  function renderSchedule() {
+    const key = formatKey(selectedDate);
+    const entry = cfg.schedules?.[key];
+    const label = formatDateLabel(selectedDate);
+    const card = $("#schedule-card");
+    $("#today-button").classList.toggle("active", key === formatKey(date));
+    $("#previous-day").disabled = key <= scheduleStart;
+    $("#next-day").disabled = key >= scheduleEnd;
+    if (!entry) {
+      card.innerHTML = `<p class="schedule-date">${label}</p><h2>No hay horarios programados</h2><p>No hay horarios programados para esta fecha.</p>`;
+      return;
+    }
+    const link = isPlaceholder(entry.pdf) ? "" : `<button class="schedule-open-button" type="button" data-pdf="${entry.pdf}" data-pdf-title="${entry.title || "Horario del día"}" data-pdf-back="schedule" data-pdf-theme="schedule">Ver horario<span>›</span></button>`;
+    const note = entry.note ? `<p>${entry.note}</p>` : "";
+    card.innerHTML = `<p class="schedule-date">${label}</p><h2>${entry.title || "Horario"}</h2>${note}${link}`;
+  }
+
+  function renderChecklist() {
+    const card = $("#checklist-card");
+    if (!selectedChecklistKey) {
+      card.innerHTML = `<h2>No hay checklists programadas</h2>`;
+      return;
+    }
+    const selected = new Date(`${selectedChecklistKey}T12:00:00`);
+    const entry = cfg.checklists?.[selectedChecklistKey] || {};
+    const referenceKey = getReferenceChecklistKey();
+    $("#checklist-today-button").classList.toggle("active", selectedChecklistKey === referenceKey);
+    const groupKeys = entry.groups || ["teatroGroup3", "teatroGroup4"];
+    const groups = cfg.checklistGroups || {};
+    card.innerHTML = `<p class="schedule-date">${formatDateLabel(selected)}</p><h2>Checklist de alumno/as</h2><div class="checklist-groups">${groupKeys.map((key) => {
+      const group = groups[key]; if (!group) return "";
+      const archived = selectedChecklistKey < formatKey(new Date());
+      const state = getChecklistState(key, group.students, archived);
+      const time = group.time ? `<small>${group.time}</small>` : "";
+      return `<details class="checklist-disclosure"><summary><span class="disclosure-title">${group.title}${time}</span><span class="disclosure-chevron">›</span></summary><div class="checklist-student-list">${group.students.map((student, index) => `<label class="checklist-student"><input type="checkbox" data-checklist-student="${index}" data-checklist-group="${key}"${state[index] ? " checked" : ""}${archived ? " disabled" : ""}><span>${student}</span></label>`).join("")}</div></details>`;
+    }).join("")}</div>`;
+  }
+
+  function moveChecklist(step) {
+    if (!selectedChecklistKey) return;
+    const index = checklistKeys.indexOf(selectedChecklistKey);
+    selectedChecklistKey = checklistKeys[Math.max(0, Math.min(checklistKeys.length - 1, index + step))];
+    renderChecklist();
+  }
+
+  function moveSchedule(step) {
+    const candidate = new Date(selectedDate);
+    candidate.setDate(candidate.getDate() + step);
+    const key = formatKey(candidate);
+    if (key < scheduleStart || key > scheduleEnd) return;
+    selectedDate = candidate;
+    renderSchedule();
+  }
+
+  function checklistStorageKey(groupKey, key = selectedChecklistKey) { return `kind-studios-checklist-${key}-${groupKey}`; }
+
+  function getChecklistState(groupKey, students, archived) {
+    const checkedStudents = archived && archivedChecklistStatus?.dates?.[selectedChecklistKey]?.[groupKey]?.checkedStudents;
+    if (Array.isArray(checkedStudents)) {
+      return Object.fromEntries(students.map((student, index) => [index, checkedStudents.includes(student)]));
+    }
+    try { return JSON.parse(localStorage.getItem(checklistStorageKey(groupKey)) || "{}"); } catch (_) { return {}; }
+  }
+
+  function saveChecklistState(groupKey) {
+    if (!groupKey) return;
+    const state = {};
+    document.querySelectorAll(`[data-checklist-student][data-checklist-group="${groupKey}"]`).forEach((input) => { state[input.dataset.checklistStudent] = input.checked; });
+    localStorage.setItem(checklistStorageKey(groupKey), JSON.stringify(state));
+  }
+
+  const checkinStorageKey = (userId, key) => `kind-studios-checkin-${key}-${userId}`;
+
+  function isViceGroupDay(key) {
+    return isTeachingDate(key) && Boolean(cfg.checklists?.[key]?.groups?.includes("viceGroup"));
+  }
+
+  function checkinGroupForUser(user) {
+    if (user?.profile === "ViceKid") return "viceGroup";
+    if (user?.profile === "Special") return "teatroGroup4";
+    return null;
+  }
+
+  function isCheckinDay(user, key) {
+    if (user?.profile === "ViceKid") return isViceGroupDay(key);
+    return user?.profile === "Special" && dateFromKey(key).getDay() === 5 && isTeachingDate(key);
+  }
+
+  const normalizedName = (value) => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+
+  function openCheckinDialog() {
+    const dialog = $("#checkin-dialog"), key = formatKey(new Date()), title = $("#checkin-dialog h2"), text = $("#checkin-dialog-text"), confirm = $("#confirm-checkin");
+    if (!checkinGroupForUser(currentUser)) return;
+    const isSpecial = currentUser.profile === "Special";
+    $("#checkin-dialog .eyebrow").textContent = isSpecial ? "TEATRO MUSICAL" : "VICE GROUP";
+    if (!isCheckinDay(currentUser, key)) {
+      title.textContent = isSpecial ? "Hoy no hay clase" : "Hoy no hay ensayo";
+      text.textContent = isSpecial ? "El Check In estará disponible el próximo viernes lectivo de Teatro Musical." : "El Check In estará disponible el próximo viernes con Vice Group.";
+      confirm.hidden = true;
+      confirm.disabled = true;
     } else {
-      $("elapsed").textContent = formatDuration(elapsed);
-      $("remaining").textContent = `−${formatDuration(state.event.end - state.position)}`;
-      $("progress-bar").style.width = `${Math.min(100, (elapsed / duration) * 100)}%`;
+      const checkin = localStorage.getItem(checkinStorageKey(currentUser.id, key));
+      title.textContent = checkin ? "Check In completado" : "¿Confirmar Check In?";
+      text.textContent = checkin ? `Tu asistencia se confirmó a las ${checkin}.` : isSpecial ? "Confirma tu llegada a Teatro Musical Grupo 4." : "Confirma tu llegada al ensayo de Vice Group.";
+      confirm.hidden = Boolean(checkin);
+      confirm.disabled = Boolean(checkin);
     }
-    renderIntermission(state, stateKey);
-    $("coming-up").classList.remove("is-visible");
-    $("screen").classList.remove("coming-up-visible");
-    $("coming-up").setAttribute("aria-hidden", "true");
+    dialog.showModal();
   }
-  renderProgramGuide(state);
-}
 
-$("sound-help").addEventListener("click", () => {
-  const media = $("player-stage").querySelector("video");
-  if (media) {
-    media.play();
-    hasStartedBroadcast = true;
-    hasStartedCurrentVideo = true;
-    updateVideoHelpVisibility();
-    $("sound-help").hidden = true;
-  }
-});
-
-$("player-stage").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-watch-channel]");
-  if (button) setActiveChannel(button.dataset.watchChannel);
-});
-
-function watchDriveActivation() {
-  if (!awaitingDriveClick) return;
-  const iframe = $("player-stage").querySelector("iframe");
-  if (iframe && document.activeElement === iframe) {
-    awaitingDriveClick = false;
-    hasStartedBroadcast = true;
-    hasStartedCurrentVideo = true;
-    updateVideoHelpVisibility();
-    iframe.tabIndex = -1;
-    document.querySelector(".player-lock").classList.remove("is-open");
-    $("sound-help").hidden = true;
-    $("channel-bug").hidden = suppressChannelBug;
-    $("drive-note").textContent = "El reproductor está bloqueado para mantener la emisión lineal.";
-  }
-}
-
-function setExpandedPlayer(enabled) {
-  $("screen").classList.toggle("is-expanded", enabled);
-  document.body.classList.toggle("player-expanded", enabled);
-  $("fullscreen-button").setAttribute("aria-label", enabled ? "Salir de pantalla completa" : "Ver a pantalla completa");
-  showPlayerControls();
-}
-$("fullscreen-button").addEventListener("click", async () => {
-  const player = $("screen");
-  if (player.classList.contains("is-expanded")) return setExpandedPlayer(false);
-  try {
-    if (document.fullscreenElement || document.webkitFullscreenElement) {
-      await (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-    } else {
-      const request = player.requestFullscreen || player.webkitRequestFullscreen;
-      if (request) await request.call(player);
-      else setExpandedPlayer(true);
+  function confirmCheckin() {
+    const groupKey = checkinGroupForUser(currentUser), key = formatKey(new Date());
+    if (!groupKey || !isCheckinDay(currentUser, key)) return;
+    const time = new Intl.DateTimeFormat("es-ES", { hour: "2-digit", minute: "2-digit" }).format(new Date());
+    localStorage.setItem(checkinStorageKey(currentUser.id, key), time);
+    const students = cfg.checklistGroups?.[groupKey]?.students || [];
+    const currentName = normalizedName(currentUser.name);
+    const studentIndex = students.findIndex((student) => {
+      const name = normalizedName(student);
+      return name === currentName || name.startsWith(`${currentName} `);
+    });
+    if (studentIndex >= 0) {
+      let state = {};
+      try { state = JSON.parse(localStorage.getItem(checklistStorageKey(groupKey, key)) || "{}"); } catch (_) {}
+      state[studentIndex] = true;
+      localStorage.setItem(checklistStorageKey(groupKey, key), JSON.stringify(state));
     }
-  } catch {
-    setExpandedPlayer(true);
+    $("#checkin-dialog").close();
+    if ($("#checklist-screen").classList.contains("active")) renderChecklist();
   }
-});
-document.addEventListener("keydown", event => {
-  if (event.key === "Escape") setExpandedPlayer(false);
-});
 
-function showPlayerControls() {
-  $("screen").classList.add("controls-visible");
-  clearTimeout(controlsTimer);
-  controlsTimer = setTimeout(() => $("screen").classList.remove("controls-visible"), 2000);
-}
+  async function openDocument(pdf, title, backTarget = "dashboard", theme = "schedule") {
+    currentPdf = { pdf, title, backTarget, theme };
+    pdfZoom = 1;
+    return renderDocument();
+  }
 
-function hidePlayerControlsSoon() {
-  clearTimeout(controlsTimer);
-  controlsTimer = setTimeout(() => $("screen").classList.remove("controls-visible"), 2000);
-}
+  async function renderDocument() {
+    if (!currentPdf) return;
+    const { pdf, title, backTarget, theme } = currentPdf;
+    $("#document-title").textContent = title;
+    $("#document-screen [data-back]").dataset.back = backTarget;
+    $("#document-screen").dataset.theme = theme;
+    const download = $("#document-download");
+    download.href = pdfUrl(pdf);
+    download.download = pdf.split("/").at(-1) || "documento.pdf";
+    showScreen("document");
+    const viewer = $("#document-viewer");
+    viewer.replaceChildren();
+    viewer.textContent = "Cargando PDF…";
+    try {
+      if (!window.pdfjsLib) throw new Error("PDF.js no disponible");
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      currentPdfTask?.destroy();
+      currentPdfTask = window.pdfjsLib.getDocument(pdfUrl(pdf));
+      const documentPdf = await currentPdfTask.promise;
+      viewer.replaceChildren();
+      for (let pageNumber = 1; pageNumber <= documentPdf.numPages; pageNumber += 1) {
+        const page = await documentPdf.getPage(pageNumber);
+        const baseViewport = page.getViewport({ scale: 1 });
+        // Renderizado único al tamaño base: el zoom posterior es visual y no vuelve a cargar el PDF.
+        const viewport = page.getViewport({ scale: (viewer.clientWidth - 28) / baseViewport.width });
+        const pageWrap = document.createElement("div");
+        pageWrap.className = "pdf-page";
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.ceil(viewport.width * devicePixelRatio);
+        canvas.height = Math.ceil(viewport.height * devicePixelRatio);
+        canvas.style.width = `${Math.ceil(viewport.width)}px`;
+        canvas.style.height = `${Math.ceil(viewport.height)}px`;
+        pageWrap.append(canvas);
+        viewer.append(pageWrap);
+        pageWrap.dataset.baseWidth = String(Math.ceil(viewport.width));
+        pageWrap.dataset.baseHeight = String(Math.ceil(viewport.height));
+        await page.render({ canvasContext: canvas.getContext("2d"), viewport, transform: [devicePixelRatio, 0, 0, devicePixelRatio, 0, 0] }).promise;
+      }
+    } catch (_) {
+      viewer.replaceChildren();
+      const fallback = document.createElement("iframe");
+      fallback.className = "pdf-fallback";
+      fallback.src = pdfUrl(pdf);
+      fallback.title = title;
+      viewer.append(fallback);
+    }
+  }
 
-function updateFavicon(color, official = false) {
-  const foreground = official ? "#080b12" : "white";
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="${color}"/><path d="M11 5l5 4 5-4" fill="none" stroke="${foreground}" stroke-width="2" stroke-linecap="round"/><rect x="6" y="9" width="20" height="16" rx="3" fill="${foreground}"/><rect x="9" y="12" width="14" height="10" rx="1" fill="${color}"/><path d="M11 26h10v2H11z" fill="${foreground}"/></svg>`;
-  document.querySelector('link[rel="icon"]').href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
-}
+  function applyPdfZoom(zoom) {
+    document.querySelectorAll("#document-viewer .pdf-page").forEach((page) => {
+      const width = Number(page.dataset.baseWidth), height = Number(page.dataset.baseHeight);
+      if (!width || !height) return;
+      page.style.width = `${Math.round(width * zoom)}px`;
+      page.style.height = `${Math.round(height * zoom)}px`;
+      const canvas = page.querySelector("canvas");
+      if (canvas) { canvas.style.width = "100%"; canvas.style.height = "100%"; }
+    });
+  }
 
-$("screen").addEventListener("pointerenter", showPlayerControls);
-$("screen").addEventListener("pointermove", showPlayerControls);
-$("screen").addEventListener("pointerleave", hidePlayerControlsSoon);
-$("screen").addEventListener("touchstart", showPlayerControls, { passive: true });
-$("screen").addEventListener("focusin", showPlayerControls);
+  function showCollection(key) {
+    const titles = { threeOfAKind: "Three of a Kind", teatroMusical: "Teatro Musical", viceGroup: "Vice Group" };
+    const items = cfg.collections?.[key] || [];
+    $("#collection-title").textContent = titles[key];
+    $("#collection-list").innerHTML = items.map((item) => {
+      if (item.items) return `<details class="collection-disclosure"><summary><span class="disclosure-title">${item.title}<small>Selecciona una partitura</small></span><span class="disclosure-chevron">›</span></summary><div class="collection-sublist">${item.items.map((child) => `<button class="collection-subbutton" type="button" data-pdf="${child.pdf}" data-pdf-title="${child.title}" data-pdf-back="collection" data-pdf-theme="${key}">${child.title}<span>›</span></button>`).join("")}</div></details>`;
+      if (item.pdf) return `<button class="collection-button" type="button" data-pdf="${item.pdf}" data-pdf-title="${item.title}" data-pdf-back="collection" data-pdf-theme="${key}">${item.title}<span>›</span></button>`;
+      return `<button class="collection-button" type="button" disabled>${item.title}<small>Próximamente</small></button>`;
+    }).join("");
+    $("#collection-screen").dataset.theme = key;
+    $("#collection-screen").dataset.collectionKey = key;
+    showScreen("collection");
+  }
 
-function setActiveChannel(id, updateHash = true) {
-  const requestedId = id;
-  id = HASH_CHANNELS[id] || id;
-  const channel = CHANNELS[id] || CHANNELS.cnt;
-  activeChannel = CHANNELS[id] ? id : "cnt";
-  clearTimeout(tuneGateTimer);
-  clearTimeout(videoHelpTimer);
-  tuneGateEndsAt = performance.now() + 2500;
-  hasStartedBroadcast = false;
-  hasStartedCurrentVideo = false;
-  videoHelpReady = false;
-  $("video-help-panel").hidden = true;
-  updateVideoHelpVisibility();
-  document.documentElement.dataset.channel = activeChannel;
-  document.documentElement.style.setProperty("--yellow", channel.color);
-  document.title = `${channel.name} Live`;
-  updateFavicon(channel.color, activeChannel === "cnt");
-  $("brand-logo").src = `${channel.logo}?v=${logoVersion}`;
-  $("brand-logo").alt = channel.name;
-  $("channel-bug").src = `${channel.logo}?v=${logoVersion}`;
-    $("channel-bug").hidden = true;
-    $("age-badge").hidden = true;
-  $("coming-up").classList.remove("is-visible");
-  $("screen").classList.remove("coming-up-visible");
-  $("coming-up").setAttribute("aria-hidden", "true");
-  $("footer-channel").textContent = channel.legalName;
-  $("guide-empty").textContent = "Las emisiones empezarán próximamente.";
-  document.querySelectorAll(".channel-tab").forEach((tab) => {
-    const selected = tab.dataset.channel === activeChannel;
-    tab.classList.toggle("is-active", selected);
-    tab.setAttribute("aria-selected", String(selected));
+  function openExternal(key) {
+    const url = cfg.externalLinks?.[key];
+    if (!url) return;
+    window.open(url, "_blank", "noopener");
+  }
+
+  async function startNfc() {
+    const dialog = $("#nfc-dialog"), status = $("#nfc-status");
+    if (!dialog.open) dialog.showModal();
+    if (!("NDEFReader" in window)) {
+      const isiPhone = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      setStatus(status, isiPhone ? "El iPhone tiene NFC, pero Safari y las apps web no permiten leer tarjetas NFC. Usa el código QR o las credenciales." : "NFC no está disponible en este navegador. Puedes usar la cámara o las credenciales.", "error");
+      return;
+    }
+    try {
+      setStatus(status, "Esperando la tarjeta…");
+      nfcController = new AbortController();
+      const reader = new NDEFReader();
+      await reader.scan({ signal: nfcController.signal });
+      reader.addEventListener("reading", ({ serialNumber, message }) => {
+        const record = message.records[0];
+        let code = serialNumber;
+        if (record?.data) { try { code = new TextDecoder(record.encoding || "utf-8").decode(record.data); } catch (_) {} }
+        validate(code, status, null, "nfc");
+      }, { once: true });
+    } catch (error) { if (error.name !== "AbortError") setStatus(status, "No se pudo leer la tarjeta. Prueba otra forma de acceso.", "error"); }
+  }
+  function stopNfc() { if (nfcController) { nfcController.abort(); nfcController = null; } }
+
+  // Configuración sencilla: es la opción más compatible con móviles y ordenadores.
+  async function startScanner(camera = activeCamera) {
+    const dialog = $("#scanner-dialog"), status = $("#scanner-status");
+    activeCamera = camera;
+    if (!dialog.open) dialog.showModal();
+    if (!window.Html5Qrcode) { setStatus(status, "No se ha podido cargar el escáner. Comprueba tu conexión.", "error"); return; }
+    try {
+      setStatus(status, "Abriendo la cámara…");
+      scanner = new Html5Qrcode("reader");
+      await scanner.start({ facingMode: activeCamera }, {
+        fps: 10,
+        // Mantiene la guía blanca cuadrada y la hace tan grande como permita la cámara.
+        qrbox: (width, height) => {
+          const side = Math.max(160, Math.round(Math.min(width, height) * 0.78));
+          return { width: side, height: side };
+        },
+        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
+      }, (code) => validate(code, status, null, "barcode"));
+      setStatus(status, activeCamera === "user" ? "Escanea el código QR con la cámara frontal." : "Escanea el código QR con la cámara trasera.");
+    } catch (_) {
+      // Un intento fallido puede dejar el visor creado; límpialo para que el cambio manual de cámara funcione.
+      if (scanner) {
+        try { await scanner.stop(); } catch (_) {}
+        try { scanner.clear(); } catch (_) {}
+      }
+      scanner = null;
+      setStatus(status, "No se pudo iniciar la cámara. Comprueba el permiso o pulsa “Cambiar cámara”.", "error");
+    }
+  }
+  async function stopScanner() { if (scanner) { try { await scanner.stop(); } catch (_) {} try { scanner.clear(); } catch (_) {} scanner = null; } }
+  async function switchCamera() { await stopScanner(); await startScanner(activeCamera === "user" ? "environment" : "user"); }
+
+  $("#brand-name").textContent = cfg.appName;
+  // Una recarga exige identificarse de nuevo.
+  sessionStorage.removeItem("controlAccessSession");
+  updateClock();
+  loadUsers();
+  loadPdfConfig();
+  loadArchivedChecklistStatus();
+  loadStudioCalendar();
+  // El reloj y el estado del estudio cambian en cuanto cambia el minuto.
+  setInterval(updateClock, 1_000);
+  $("#nfc-button").addEventListener("click", startNfc);
+  // No pasar el evento del clic a startScanner: se interpretaría erróneamente como una cámara.
+  // Cada acceso nuevo usa la trasera en móvil y la webcam en ordenador.
+  $("#camera-button").addEventListener("click", () => { activeCamera = defaultScannerCamera(); startScanner(activeCamera); });
+  $("#manual-button").addEventListener("click", () => { $("#manual-username").value = ""; $("#manual-code").value = ""; $("#manual-code").type = "password"; $("#toggle-password").textContent = "Mostrar"; $("#toggle-password").setAttribute("aria-label", "Mostrar clave de acceso"); $("#toggle-password").setAttribute("aria-pressed", "false"); setStatus($("#manual-status"), ""); $("#manual-dialog").showModal(); setTimeout(() => $("#manual-username").focus(), 100); });
+  const submitManualCredentials = () => validate($("#manual-code").value, $("#manual-status"), $("#manual-username").value, "credentials");
+  $("#submit-code").addEventListener("click", (event) => { event.preventDefault(); submitManualCredentials(); });
+  [$("#manual-username"), $("#manual-code")].forEach((input) => input.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); submitManualCredentials(); } }));
+  $("#toggle-password").addEventListener("click", () => {
+    const input = $("#manual-code"), visible = input.type === "text";
+    input.type = visible ? "password" : "text";
+    $("#toggle-password").textContent = visible ? "Mostrar" : "Ocultar";
+    $("#toggle-password").setAttribute("aria-label", visible ? "Mostrar clave de acceso" : "Ocultar clave de acceso");
+    $("#toggle-password").setAttribute("aria-pressed", String(!visible));
   });
-
-  if (isChannelProgrammed(activeChannel)) {
-    $("coming-soon").hidden = true;
-    $("player-stage").hidden = false;
-    $("progress-track").hidden = false;
-    $("time-row").hidden = false;
-    document.querySelector(".next-card").hidden = false;
-    $("program-guide-scroll").hidden = false;
-    $("guide-empty").hidden = true;
-    loadedKey = "";
-    guideKey = "";
-    render();
-  } else {
-    updateVideoHelpVisibility();
-    clearTimeout(tuneGateTimer);
-    awaitingDriveClick = false;
-    loadedKey = "";
-    $("player-stage").replaceChildren();
-    $("player-stage").hidden = true;
-    $("sound-help").hidden = true;
-    $("tune-loader").hidden = true;
-    $("live-badge").hidden = true;
-    $("coming-soon").hidden = false;
-    $("coming-soon-title").textContent = channel.name;
-    $("status-kicker").textContent = channel.type.toUpperCase();
-    $("current-title").textContent = "Las emisiones empezarán próximamente";
-    $("program-meta").hidden = true;
-    $("progress-track").hidden = true;
-    $("time-row").hidden = true;
-    document.querySelector(".next-card").hidden = true;
-    $("program-guide-scroll").hidden = true;
-    $("guide-empty").hidden = false;
-    if (SCHEDULES[activeChannel]?.mode !== "upcoming") {
-      // La ausencia de datos es un error de carga, no un canal sin estrenar.
-      $("coming-soon").querySelector(".eyebrow").textContent = "ERROR DE CARGA";
-      $("coming-soon").querySelector("p:last-child").textContent = "No se ha podido cargar la programación. Prueba a recargar la página.";
-      $("status-kicker").textContent = "PROGRAMACIÓN NO DISPONIBLE";
-      $("current-title").textContent = "No se ha podido cargar la parrilla";
-      $("guide-empty").textContent = "La programación no se ha cargado.";
-    } else {
-      $("coming-soon").querySelector(".eyebrow").textContent = "PRÓXIMAMENTE...";
-      $("coming-soon").querySelector("p:last-child").textContent = "Las emisiones empezarán próximamente.";
-    }
-  }
-
-  if (updateHash || requestedId === "metv" || requestedId === "ccc" || (!CHANNELS[requestedId] && !HASH_CHANNELS[requestedId])) {
-    history.replaceState(null, "", `#${CHANNEL_HASHES[activeChannel] || activeChannel}`);
-  }
-}
-
-function reloadCurrentPlayer() {
-  $("video-help-panel").hidden = true;
-  loadedKey = "";
-  hasStartedCurrentVideo = false;
-  $("age-badge").hidden = true;
-  render();
-  showPlayerControls();
-}
-
-document.querySelector(".brand").addEventListener("click", (event) => {
-  event.preventDefault();
-  reloadCurrentPlayer();
-});
-
-document.querySelectorAll(".channel-tab").forEach((tab) => {
-  tab.addEventListener("click", () => setActiveChannel(tab.dataset.channel));
-});
-
-$("video-help-link").addEventListener("click", () => {
-  $("video-help-panel").hidden = false;
-  updateVideoHelpVisibility();
-});
-$("video-help-close").addEventListener("click", () => {
-  $("video-help-panel").hidden = true;
-  updateVideoHelpVisibility();
-});
-$("video-help-reload").addEventListener("click", reloadCurrentPlayer);
-window.addEventListener("hashchange", () => {
-  setActiveChannel(location.hash.slice(1), false);
-});
-
-setActiveChannel(location.hash.slice(1) || "cnt", false);
-window.CNT_APP_READY = true;
-document.documentElement.classList.remove("app-booting");
-showPlayerControls();
-setInterval(render, 1000);
-setInterval(watchDriveActivation, 50);
-window.addEventListener("resize", () => { guideKey = ""; });
+  $("#stop-camera").addEventListener("click", stopScanner);
+  $("#switch-camera").addEventListener("click", switchCamera);
+  $("#scanner-dialog").addEventListener("close", stopScanner);
+  $("#stop-nfc").addEventListener("click", stopNfc);
+  $("#nfc-dialog").addEventListener("close", stopNfc);
+  $("#confirm-checkin").addEventListener("click", (event) => { event.preventDefault(); confirmCheckin(); });
+  $("#logout-button").addEventListener("click", () => { sessionStorage.removeItem("controlAccessSession"); showScreen("access"); const status = $("#access-status"); setStatus(status, "Sesión cerrada"); setTimeout(() => { if (status.textContent === "Sesión cerrada") setStatus(status, ""); }, 10_000); });
+  document.querySelectorAll("[data-section]").forEach((button) => button.addEventListener("click", () => {
+    if (button.dataset.section === "schedule") { renderSchedule(); showScreen("schedule"); }
+    if (button.dataset.section === "checklist") { renderChecklist(); showScreen("checklist"); }
+    if (button.dataset.section === "checkin") openCheckinDialog();
+  }));
+  document.querySelectorAll("[data-collection]").forEach((button) => button.addEventListener("click", () => showCollection(button.dataset.collection)));
+  document.querySelectorAll("[data-external]").forEach((button) => button.addEventListener("click", () => openExternal(button.dataset.external)));
+  document.addEventListener("click", (event) => { const button = event.target.closest("[data-pdf]"); if (button) openDocument(button.dataset.pdf, button.dataset.pdfTitle, button.dataset.pdfBack, button.dataset.pdfTheme); });
+  document.addEventListener("change", (event) => { if (event.target.matches("[data-checklist-student]")) saveChecklistState(event.target.dataset.checklistGroup); });
+  document.querySelectorAll("[data-back]").forEach((button) => button.addEventListener("click", () => showScreen(button.dataset.back)));
+  $("#previous-day").addEventListener("click", () => moveSchedule(-1));
+  $("#next-day").addEventListener("click", () => moveSchedule(1));
+  $("#today-button").addEventListener("click", () => { selectedDate = new Date(date); if (formatKey(selectedDate) < scheduleStart) selectedDate = dateFromKey(scheduleStart); if (formatKey(selectedDate) > scheduleEnd) selectedDate = dateFromKey(scheduleEnd); renderSchedule(); });
+  $("#previous-checklist").addEventListener("click", () => moveChecklist(-1));
+  $("#next-checklist").addEventListener("click", () => moveChecklist(1));
+  $("#checklist-today-button").addEventListener("click", () => {
+    selectedChecklistKey = getReferenceChecklistKey();
+    renderChecklist();
+  });
+  updateChecklistTodayLabel();
+  const pinchDistance = (touches) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+  const viewer = $("#document-viewer");
+  viewer.addEventListener("touchstart", (event) => {
+    if (event.touches.length === 2 && currentPdf) { pinchStartDistance = pinchDistance(event.touches); pinchStartZoom = pdfZoom; pinchPreviewZoom = pdfZoom; }
+  }, { passive: true });
+  viewer.addEventListener("touchmove", (event) => {
+    if (event.touches.length !== 2 || !pinchStartDistance || !currentPdf) return;
+    event.preventDefault();
+    const previewZoom = Math.min(2.5, Math.max(0.5, pinchStartZoom * (pinchDistance(event.touches) / pinchStartDistance)));
+    pinchPreviewZoom = previewZoom;
+    applyPdfZoom(previewZoom);
+  }, { passive: false });
+  viewer.addEventListener("touchend", (event) => {
+    if (event.touches.length || !pinchStartDistance || !currentPdf) return;
+    pdfZoom = pinchPreviewZoom;
+    pinchStartDistance = 0;
+    applyPdfZoom(pdfZoom);
+  });
+  document.addEventListener("touchmove", (event) => {
+    if (event.touches.length > 1 && !event.target.closest("#document-viewer")) event.preventDefault();
+  }, { passive: false });
+  document.addEventListener("gesturestart", (event) => event.preventDefault(), { passive: false });
+  if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=20260906-2", { updateViaCache: "none" }));
+})();
