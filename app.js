@@ -431,7 +431,9 @@ function renderPlayer(item, offset, key) {
 
 function renderProgramGuide(state) {
   const viewport = $("program-guide-scroll");
-  const hourWidth = Math.max(190, viewport.clientWidth / 1.35);
+  // La anchura visible representa una hora desde el inicio del bloque actual;
+  // las 23 horas restantes siguen disponibles mediante desplazamiento horizontal.
+  const hourWidth = Math.max(280, viewport.clientWidth);
   const nowSeconds = state.day * 86400 + state.position;
   const current = state.event;
   const currentGuideStart = current.guideStart ?? (current.item?.programDuration
