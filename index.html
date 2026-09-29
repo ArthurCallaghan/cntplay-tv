@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="CNT: emisión lineal con programación diaria." />
+    <meta name="theme-color" content="#080b12" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="CNT Live" />
+    <link rel="manifest" href="manifest.webmanifest?v=20260929-76" />
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=20260929-76" />
+    <meta name="cnt-build" content="20260929-76" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>CNT</title>
+    <link rel="icon" href="assets/favicon.svg?v=20260929-76" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css?v=20260929-76" />
+    <script>
+      document.documentElement.classList.add("app-booting");
+      const currentBuild = document.querySelector('meta[name="cnt-build"]').content;
+      fetch(`${location.pathname}?comprobar=${Date.now()}`, { cache: "no-store" })
+        .then(response => response.text())
+        .then(html => {
+          const latestBuild = html.match(/<meta name="cnt-build" content="([^"]+)"/)?.[1];
+          if (latestBuild && latestBuild !== currentBuild) {
+            const freshUrl = new URL(location.href);
+            freshUrl.searchParams.set("version", latestBuild);
+            location.replace(freshUrl);
+          }
+        })
+        .catch(() => {});
+      window.CNT_APP_READY = false;
+      window.CNT_LOAD_ERRORS = [];
+      window.addEventListener("error", event => {
+        const source = event.target && (event.target.src || event.target.href);
+        if (source) window.CNT_LOAD_ERRORS.push(source);
+        else if (event.message) window.CNT_LOAD_ERRORS.push(event.message);
+      }, true);
+      if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js?v=20260929-76", { updateViaCache: "none" }).catch(() => {});
+      window.addEventListener("load", () => setTimeout(() => {
+        if (window.CNT_APP_READY) {
+          sessionStorage.removeItem("cnt-recovery-attempted");
+          return;
+        }
+        if (!sessionStorage.getItem("cnt-recovery-attempted")) {
+          sessionStorage.setItem("cnt-recovery-attempted", "1");
+          const url = new URL(location.href);
+          url.searchParams.set("recuperar", Date.now());
+          location.replace(url);
+          return;
+        }
+        document.documentElement.classList.remove("app-booting");
+        document.body.innerHTML = '<main class="boot-error"><h1>CNT no ha podido cargar</h1><p>Chrome ha bloqueado uno o más archivos de la emisión.</p><p class="boot-error-detail"></p><button onclick="sessionStorage.clear();location.reload()">Reintentar</button></main>';
+        const detail = document.querySelector(".boot-error-detail");
+        detail.textContent = window.CNT_LOAD_ERRORS.length ? `Detalle: ${window.CNT_LOAD_ERRORS.at(-1).split("/").at(-1)}` : "Prueba a desactivar el bloqueador de contenido para tv.cntplay.es.";
+      }, 2500));
+    </script>
+    <style>.app-booting body { visibility: hidden; }</style>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#cnt" aria-label="Canal actual">
+        <img id="brand-logo" class="brand-logo" alt="" />
+      </a>
+      <nav class="channel-tabs" aria-label="Canales">
+        <button class="channel-tab is-active" style="--tab-color:#fec601" data-channel="cnt" aria-selected="true">CNT</button>
+        <button class="channel-tab" style="--tab-color:#cf0000" data-channel="weazel" aria-selected="false">Weazel</button>
+        <button class="channel-tab" style="--tab-color:#2475ba" data-channel="comedy" aria-selected="false">CCC</button>
+        <button class="channel-tab" style="--tab-color:#44cafe" data-channel="metv" aria-selected="false">MeTV</button>
+        <button class="channel-tab" style="--tab-color:#843600" data-channel="canyon" aria-selected="false">The Canyon Channel</button>
+        <button class="channel-tab" style="--tab-color:#af087c" data-channel="emotion" aria-selected="false">Emotion</button>
+      </nav>
+      <a id="google-account-link" class="account-link" href="https://accounts.google.com/AccountChooser?continue=https%3A%2F%2Fsites.google.com%2Fview%2Fcntplay-web&amp;flowName=GlifWebSignIn&amp;flowEntry=ServiceLogin" target="_blank" rel="noopener noreferrer" aria-label="Elegir una cuenta de Google" title="Elegir una cuenta de Google">
+        <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
+          <circle cx="9" cy="5" r="3"></circle>
+          <path d="M3 16v-1a6 6 0 0 1 12 0v1Z"></path>
+        </svg>
+      </a>
+    </header>
+
+    <main>
+      <section class="broadcast" aria-label="Emisión en directo">
+        <div class="screen-shell">
+          <div class="screen" id="screen">
+            <div id="player-stage" class="player-stage" hidden></div>
+            <div class="player-lock" aria-hidden="true"></div>
+            <div class="control-guard" aria-hidden="true"></div>
+            <div id="coming-soon" class="coming-soon" hidden>
+              <p class="eyebrow">PRÓXIMAMENTE...</p>
+              <h1 id="coming-soon-title">Nuevas emisiones</h1>
+              <p>Las emisiones empezarán próximamente.</p>
+            </div>
+            <div id="live-badge" class="live-badge" hidden><span></span><b id="live-label">EN DIRECTO</b></div>
+            <div class="video-safe-area">
+              <img id="channel-bug" class="channel-bug" src="assets/cnt-logo.png" alt="" hidden />
+              <div id="age-badge" class="age-badge" role="img" hidden></div>
+              <div id="coming-up" class="coming-up" aria-hidden="true">
+                <span>A CONTINUACIÓN</span>
+                <strong id="coming-up-title"></strong>
+              </div>
+            </div>
+            <button id="fullscreen-button" class="fullscreen-button" type="button" aria-label="Ver a pantalla completa">⛶</button>
+            <button id="sound-help" class="sound-help" type="button" hidden>
+              Ver emisión
+            </button>
+            <div id="tune-loader" class="tune-loader" hidden aria-live="polite">
+              <span>Preparando emisión…</span>
+              <i aria-hidden="true"><b id="tune-loader-bar"></b></i>
+            </div>
+            <button id="video-help-link" class="video-help-link" type="button" hidden>¿Problemas para cargar la emisión?</button>
+            <div id="video-help-panel" class="video-help-panel" hidden role="dialog" aria-modal="true" aria-labelledby="video-help-title">
+              <strong id="video-help-title">¿La emisión no funciona?</strong>
+              <ol>
+                <li>Si aparece un aviso de cookies, acéptalas y recarga el reproductor.</li>
+                <li>Si el vídeo sigue sin aparecer, inicia sesión en Google con el icono de usuario de la barra superior, cierra esa ventana para volver a CNT Live y recarga otra vez el reproductor.</li>
+              </ol>
+              <div>
+                <button id="video-help-close" type="button">Volver</button>
+                <button id="video-help-reload" class="is-primary" type="button">Recargar reproductor</button>
+              </div>
+              <p class="video-help-note">El reproductor funciona mejor en ordenadores que en dispositivos móviles.</p>
+            </div>
+          </div>
+          <p id="drive-note" class="drive-note" hidden>
+            Pulsa “Ver emisión”. El clic llegará directamente al botón central de Drive y el reproductor se bloqueará inmediatamente después.
+          </p>
+        </div>
+
+        <aside class="now-panel" aria-live="polite">
+          <p id="status-kicker" class="eyebrow">EN EMISIÓN</p>
+          <h2 id="current-title">CNT</h2>
+          <dl id="program-meta" class="program-meta">
+            <div id="rating-meta"><dt>CLASIFICACIÓN</dt><dd id="current-rating">—</dd></div>
+            <div><dt>DURACIÓN</dt><dd id="current-duration">—</dd></div>
+          </dl>
+          <div id="progress-track" class="progress-track" aria-hidden="true"><span id="progress-bar"></span></div>
+          <div id="time-row" class="time-row">
+            <span id="elapsed">—</span>
+            <span id="remaining">—</span>
+          </div>
+          <div class="next-card">
+            <span id="next-label">PRÓXIMA EMISIÓN</span>
+            <time id="next-time">—</time>
+            <strong id="next-title">—</strong>
+          </div>
+        </aside>
+
+        <section class="program-guide" aria-label="Parrilla de programación">
+          <div class="guide-heading">
+            <span class="eyebrow">PROGRAMACIÓN DE HOY</span>
+          </div>
+          <div id="program-guide-scroll" class="program-guide-scroll">
+            <div id="guide-timeline" class="guide-timeline">
+              <div id="hour-scale" class="hour-scale" aria-hidden="true"></div>
+              <div id="program-guide-track" class="program-guide-track" role="list"></div>
+              <div id="guide-now-line" class="guide-now-line" aria-hidden="true"></div>
+            </div>
+          </div>
+          <div id="guide-empty" class="guide-empty" hidden>Las emisiones empezarán próximamente.</div>
+        </section>
+      </section>
+
+    </main>
+
+    <footer>
+      <span>Emisión en directo</span>
+      <span id="footer-channel">CNT</span>
+      <small>CNT · Weazel · Conglomerated Comedy Channel · Music Entertainment TV · The Canyon Channel · Emotion</small>
+    </footer>
+
+    <noscript>Esta emisión necesita JavaScript para sincronizarse con la hora actual.</noscript>
+    <script src="data/catalog.js?v=20260929-76"></script>
+    <script data-source="data/schedules/cnt.js">
+// Parrilla lineal de CNT.
+window.CHANNEL_SCHEDULES = window.CHANNEL_SCHEDULES || {};
+(() => {
+  const episodes = (prefix, first, last) => Array.from(
+    { length: last - first + 1 }, (_, index) => `${prefix}${String(first + index).padStart(2, "0")}`
+  );
+  const makeChains = () => [
+    [
+      episodes("three-kind-s02e", 25, 29),
+      ["three-kind-s02e30-1"],
+      ["three-kind-s02e30-2"],
+      ["three-kind-s02e31", "three-kind-s02e32", "three-kind-s02e34"]
+    ],
+    [
+      episodes("caos-strawberry-s01e", 1, 4),
+      episodes("caos-strawberry-s01e", 5, 9),
+      episodes("caos-strawberry-s01e", 10, 12)
+    ],
+    [episodes("paranormal-v01e", 1, 4), episodes("paranormal-v01e", 5, 7)],
+    [["movie-origen-fort-brimstone"], ["movie-caida-fort-brimstone"]],
+    [["special-summer-sound-4"]],
+    [["movie-amatista-2"]]
+  ];
+  const sequenceForCycle = (cycle) => {
+    const chains = makeChains();
+    let seed = (20260927 + Math.imul(cycle, 2654435761)) >>> 0;
+    const firstChain = ((cycle % 6) + 6) % 6;
+    const nextFirstChain = (((cycle + 1) % 6) + 6) % 6;
+    const arrange = (remaining, previous = -1, order = []) => {
+      if (!remaining.some(Boolean)) {
+        return previous !== nextFirstChain || previous === 3 ? order : null;
+      }
+      const available = remaining.map((count, index) => index).filter(index =>
+        remaining[index] && (index !== previous || index === 3) &&
+        !(index === 1 && remaining[1] === 1 && remaining[3]) &&
+        (order.length || index === firstChain)
+      );
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      const offset = available.length ? seed % available.length : 0;
+      const candidates = available.slice(offset).concat(available.slice(0, offset));
+      for (const index of candidates) {
+        const rest = [...remaining];
+        rest[index]--;
+        const result = arrange(rest, index, [...order, index]);
+        if (result) return result;
+      }
+      return null;
+    };
+    const order = arrange(chains.map(chain => chain.length));
+    if (!order) throw new Error("No se ha podido ordenar la parrilla de CNT");
+    const blocks = order.map(index => chains[index].shift());
+    const adBreak = window.SCHEDULE_TOOLS.makeTrailerBreaks(seed);
+    const sequence = [];
+    let elapsed = 0;
+    let count = 0;
+    const pause = () => {
+      if (!count) return;
+      sequence.push(adBreak(elapsed >= 30 * 60 ? 180 : 120));
+      elapsed = 0;
+      count = 0;
+    };
+    blocks.forEach(block => {
+      block.forEach(id => {
+        const duration = window.CONTENT_CATALOG[id].duration;
+        if (count && (duration >= 20 * 60 || elapsed + duration + 10 > 35 * 60)) pause();
+        sequence.push(id);
+        elapsed += duration + 10;
+        count++;
+        if (count >= 3 || elapsed >= 30 * 60 || duration >= 20 * 60) pause();
+      });
+      pause();
+    });
+    return sequence;
+  };
+  window.CHANNEL_SCHEDULES.cnt = {
+    mode: "loop", videoMargin: 10, sequence: sequenceForCycle(0), sequenceForCycle
+  };
+})();
+
+    </script>
+    <script src="data/schedules/weazel.js?v=20260929-76"></script>
+    <script src="data/schedules/comedy-tv.js?v=20260929-76"></script>
+    <script src="data/schedules/metv.js?v=20260929-76"></script>
+    <script src="data/schedules/the-canyon-channel.js?v=20260929-76"></script>
+    <script src="data/schedules/emotion.js?v=20260929-76"></script>
+    <script src="app.js?v=20260929-76"></script>
+  </body>
+</html>
