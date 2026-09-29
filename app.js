@@ -89,7 +89,7 @@ function showActivationControl() {
     return;
   }
   loader.hidden = true;
-  button.textContent = hasStartedBroadcast ? "Seguir con la emisión" : "Ver emisión";
+  button.textContent = "Ver emisión";
   button.hidden = false;
   clearTimeout(videoHelpTimer);
   videoHelpReady = false;

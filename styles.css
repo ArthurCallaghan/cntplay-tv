@@ -140,6 +140,12 @@ html[data-channel="metv"] .screen:-webkit-full-screen .channel-bug { width: clam
 .live-badge { position: absolute; z-index: 3; top: 18px; left: 18px; display: flex; align-items: center; gap: 8px; padding: 8px 11px; color: #fff; background: rgba(10,10,10,.86); backdrop-filter: blur(8px); font-size: .76rem; font-weight: 850; letter-spacing: .12em; }
 .live-badge, .fullscreen-button { opacity: 0; pointer-events: none; transition: opacity .25s ease; }
 .screen.controls-visible .live-badge, .screen.controls-visible .fullscreen-button { opacity: 1; pointer-events: auto; }
+.screen:fullscreen:not(.controls-visible),
+.screen:fullscreen:not(.controls-visible) *,
+.screen:-webkit-full-screen:not(.controls-visible),
+.screen:-webkit-full-screen:not(.controls-visible) *,
+.screen.is-expanded:not(.controls-visible),
+.screen.is-expanded:not(.controls-visible) * { cursor: none !important; }
 .live-badge span { width: 8px; height: 8px; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 0 5px color-mix(in srgb, var(--yellow) 20%, transparent); animation: pulse 1.8s infinite; }
 .live-badge b { font: inherit; }
 .live-badge.is-channel-label span { background: var(--yellow); box-shadow: 0 0 0 5px color-mix(in srgb, var(--yellow) 20%, transparent); }
