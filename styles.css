@@ -35,14 +35,14 @@ body {
 
 .brand { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
 .brand-logo { display: block; width: auto; height: 58px; max-width: 110px; object-fit: contain; }
-html[data-channel="cnt"] .brand-logo { height: 50px; max-width: 98px; }
+html[data-channel="cnt"] .brand-logo { height: 46px; max-width: 90px; }
 html[data-channel="weazel"] .brand-logo { height: 64px; max-width: 136px; }
 html[data-channel="emotion"] .brand-logo { height: 64px; max-width: 128px; }
 .brand-name { font-size: 1.45rem; font-weight: 850; letter-spacing: 0.1em; }
 .brand-channel { color: var(--muted); border-left: 1px solid var(--line); padding-left: 12px; font-size: 0.82rem; letter-spacing: 0.16em; }
 
 .channel-tabs { display: flex; min-width: 0; align-self: stretch; margin-left: auto; overflow-x: auto; scrollbar-width: thin; }
-.channel-tab { position: relative; flex: 0 0 auto; border: 0; border-bottom: 3px solid transparent; padding: 0 13px; color: var(--muted); background: transparent; font: inherit; font-size: .78rem; font-weight: 760; cursor: pointer; white-space: nowrap; }
+.channel-tab { position: relative; display: flex; flex: 0 0 auto; align-items: center; justify-content: center; border: 0; border-bottom: 3px solid transparent; padding: 0 13px; color: var(--muted); background: transparent; font: inherit; font-size: .78rem; font-weight: 760; cursor: pointer; white-space: nowrap; }
 .channel-tab::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 2px; background: var(--tab-color); }
 .channel-tab:hover, .channel-tab:focus-visible { color: var(--ink); }
 .channel-tab.is-active { color: var(--ink); border-bottom-color: var(--tab-color); }
@@ -65,6 +65,7 @@ main { padding: 42px 0 52px; }
 body.player-expanded { overflow: hidden; }
 .screen.is-expanded { position: fixed; inset: 0; z-index: 1000; width: 100%; height: 100dvh; aspect-ratio: auto; border: 0; background: #000; }
 .screen.is-expanded .player-stage { position: absolute; left: 50%; top: 50%; width: min(100vw, 177.7778dvh); height: min(100dvh, 56.25vw); transform: translate(-50%, -50%); }
+.screen.is-expanded .player-stage iframe { height: calc(100% + 340px); transform: translateY(-170px); }
 .screen.is-expanded .video-safe-area { inset: 50% auto auto 50%; width: min(100vw, 177.7778dvh); height: min(100dvh, 56.25vw); transform: translate(-50%, -50%); }
 .screen.is-expanded .fullscreen-button { bottom: max(18px, env(safe-area-inset-bottom)); left: max(18px, env(safe-area-inset-left)); }
 .player-stage, .player-stage iframe, .player-stage video { width: 100%; height: 100%; border: 0; object-fit: contain; background: #000; }
@@ -225,7 +226,7 @@ noscript { display: block; padding: 18px; text-align: center; background: #5b171
   .topbar { min-height: 82px; align-items: stretch; }
   .brand-channel { display: none; }
   .brand-logo { width: auto; height: 46px; max-width: 90px; }
-  html[data-channel="cnt"] .brand-logo { height: 40px; max-width: 80px; }
+  html[data-channel="cnt"] .brand-logo { height: 36px; max-width: 72px; }
   html[data-channel="weazel"] .brand-logo { height: 50px; max-width: 108px; }
   html[data-channel="emotion"] .brand-logo { height: 50px; max-width: 102px; }
   main { padding-top: 24px; }
