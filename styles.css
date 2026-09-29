@@ -158,9 +158,12 @@ html[data-channel="metv"] .screen:-webkit-full-screen .channel-bug { width: clam
 .video-help-link:not([hidden]) { opacity: 1; pointer-events: auto; animation: video-help-appear .4s ease both; }
 @keyframes video-help-appear { from { opacity: 0; } to { opacity: 1; } }
 .video-help-link:hover, .video-help-link:focus-visible { color: #fff; }
-.video-help-panel { position: absolute; z-index: 12; inset: 0; display: grid; align-content: center; justify-items: center; gap: 14px; padding: clamp(24px, 6vw, 64px); color: #fff; text-align: center; background: #020305; }
-.video-help-panel strong { font-size: clamp(1.35rem, 3vw, 2.2rem); }
-.video-help-panel p { max-width: 590px; margin: 0; color: #c7ccd5; font-size: clamp(.82rem, 1.5vw, 1rem); line-height: 1.55; }
+.video-help-panel { position: absolute; z-index: 12; inset: 0; display: grid; align-content: center; justify-items: center; gap: 14px; padding: clamp(24px, 6vw, 64px); padding-bottom: clamp(58px, 8vw, 78px); color: #fff; text-align: center; background: #020305; }
+.video-help-panel strong { font-size: clamp(1.15rem, 2.5vw, 1.8rem); }
+.video-help-panel p, .video-help-panel ol { max-width: 620px; margin: 0; color: #c7ccd5; font-size: clamp(.76rem, 1.4vw, .96rem); line-height: 1.5; }
+.video-help-panel ol { padding-left: 0; list-style-position: inside; text-align: center; }
+.video-help-panel li + li { margin-top: 7px; }
+.video-help-panel .video-help-note { position: absolute; right: 18px; bottom: 14px; left: 18px; max-width: none; color: #929aa7; font-size: clamp(.66rem, 1.05vw, .78rem); text-align: center; }
 .video-help-panel div { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 4px; }
 .video-help-panel button { border: 1px solid rgba(255,255,255,.28); padding: 10px 14px; color: #fff; background: #111620; font: inherit; font-size: .8rem; font-weight: 800; cursor: pointer; }
 .video-help-panel button.is-primary { border-color: var(--yellow); color: #090b0f; background: var(--yellow); }
