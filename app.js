@@ -474,7 +474,8 @@ function renderProgramGuide(state) {
   const extendedEnd = Math.max(nominalEnd, lastVisible?.absoluteEnd || nominalEnd);
 
   const timelineWidth = ((extendedEnd - guideWindowStart) / 3600) * hourWidth;
-  $("guide-now-line").style.left = `${((nowSeconds - guideWindowStart) / 3600) * hourWidth}px`;
+  const nowLineLeft = ((nowSeconds - guideWindowStart) / 3600) * hourWidth;
+  $("guide-now-line").style.left = `${nowLineLeft}px`;
   const track = $("program-guide-track");
   const scale = $("hour-scale");
   const timeline = $("guide-timeline");
@@ -526,7 +527,10 @@ function renderProgramGuide(state) {
   scale.replaceChildren(hourFragment);
   track.replaceChildren(fragment);
   requestAnimationFrame(() => {
-    viewport.scrollTo({ left: 0, behavior: "smooth" });
+    const edgeMargin = Math.min(48, viewport.clientWidth * .1);
+    const lineFitsComfortably = nowLineLeft <= viewport.clientWidth - edgeMargin;
+    const initialScroll = lineFitsComfortably ? 0 : Math.max(0, nowLineLeft - edgeMargin);
+    viewport.scrollTo({ left: initialScroll, behavior: "smooth" });
   });
 }
 
